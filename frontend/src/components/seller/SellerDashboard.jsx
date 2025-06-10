@@ -108,8 +108,8 @@ function SellerDashboard() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="sm:flex sm:items-center sm:justify-between mb-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-aos="fade-up">
+      <div className="sm:flex sm:items-center sm:justify-between mb-8" data-aos="fade-up" data-aos-delay="100">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -119,16 +119,16 @@ function SellerDashboard() {
         <div className="mt-4 sm:mt-0">
           <Link
             to="/seller/products/new"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
           >
             Add New Product
           </Link>
         </div>
       </div>
 
-      <div className="mt-8 flex flex-col">
+      <div className="mt-8 flex flex-col" data-aos="fade-up" data-aos-delay="200">
         <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8" data-aos="fade-up" data-aos-delay="300">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
               <table className="min-w-full divide-y divide-gray-300">
                 <thead className="bg-gray-50">
@@ -160,8 +160,8 @@ function SellerDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {products.map((product) => (
-                    <tr key={product.id}>
+                  {products.map((product, idx) => (
+                    <tr key={product.id} data-aos="fade-up" data-aos-delay={idx * 50}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                         {product.imageData ? (
                           <img
@@ -210,7 +210,7 @@ function SellerDashboard() {
                         <div className="flex justify-end space-x-2">
                           <button
                             onClick={() => { localStorage.setItem('editProduct', JSON.stringify(product)); navigate(`/seller/products/edit/${product.id}`); }}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-red-600 hover:text-red-900"
                           >
                             Edit
                           </button>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Nav from './components/Nav';
@@ -10,8 +10,14 @@ import Products from './components/customer/Products';
 import Cart from './components/customer/Cart';
 import SellerDashboard from './components/seller/SellerDashboard';
 import ProductForm from './components/seller/ProductForm';
+import AOS from 'aos';
+import 'aos/dist/aos.css';
 
 function App() {
+  useEffect(() => {
+    AOS.init({ once: true, duration: 600 });
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-100">
       <Nav />

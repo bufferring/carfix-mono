@@ -61,6 +61,9 @@ function Products() {
     }
   };
 
+  // Defensive helper to avoid rendering 0, null, undefined, or empty string
+  const safeField = (val) => (val === null || val === undefined || val === '' || val === 0 ? '' : val);
+
   if (loading) return (
     <div className="flex justify-center items-center min-h-[50vh]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -88,12 +91,12 @@ function Products() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {products.map(product => (
+        {products.map((product, idx) => (
           <div
             key={product.id}
-            className={`bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105 ${
-              product.featured ? 'ring-2 ring-blue-500' : ''
-            }`}
+            data-aos="fade-up"
+            data-aos-delay={idx * 50}
+            className={`bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105${product.featured ? ' ring-2 ring-blue-500' : ''}`}
           >
             <div className="relative">
               {product.images && product.images.length > 1 ? (
@@ -139,23 +142,23 @@ function Products() {
               )}
             </div>
             <div className="p-4">
-              <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
-              <p className="mt-1 text-sm text-gray-500">{product.category}</p>
+              <h3 className="text-lg font-medium text-gray-900">{safeField(product.name)}</h3>
+              <p className="mt-1 text-sm text-gray-500">{safeField(product.category)}</p>
               <div className="mt-2 flex items-center justify-between">
-                <p className="text-lg font-medium text-gray-900">${product.price}</p>
-                <p className="text-sm text-gray-500">{product.brand}</p>
+                <p className="text-lg font-medium text-gray-900">{safeField(product.price) !== '' ? `$${product.price}` : ''}</p>
+                {safeField(product.brand) ? <p className="text-sm text-gray-500">{product.brand}</p> : null}
               </div>
               <div className="mt-4">
                 {product.stock > 0 ? (
                   <button
-                    className="w-full rounded-md bg-blue-600 text-white px-3 py-2 text-sm font-medium hover:bg-blue-700 transition"
+                    className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition"
                     onClick={() => navigate(`/cart?add=${product.id}`)}
                   >
                     Shop
                   </button>
                 ) : (
                   <button
-                    className="w-full rounded-md bg-gray-200 text-gray-600 px-3 py-2 text-sm font-medium cursor-not-allowed"
+                    className="w-full rounded-md bg-gray-200 text-gray-600 px-3 py-2 text-sm font-medium cursor-not-allowed opacity-50"
                     disabled
                   >
                     Out of Stock
