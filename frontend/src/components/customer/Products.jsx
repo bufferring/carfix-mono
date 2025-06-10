@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 function Products() {
   const [products, setProducts] = useState([]);
@@ -7,6 +8,7 @@ function Products() {
   const [error, setError] = useState(null);
   const [addingToCart, setAddingToCart] = useState(null);
   const { user, token } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -95,42 +97,37 @@ function Products() {
           >
             <div className="relative">
               {product.images && product.images.length > 1 ? (
-                /* Mosaic (grid) for two or more images */
                 <div className="grid grid-cols-2 gap-1 w-full h-48 bg-gray-200">
                   {product.images.slice(0, 4).map((img, idx) => (
-                     (img.imageData) ? (
-                        <img
-                           key={idx}
-                           src={img.imageData}
-                           alt={`${product.name} (${idx + 1})`}
-                           className="w-full h-full object-cover"
-                           onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/96?text=No+Image'; }}
-                        />
-                     ) : (idx === 0) ? (
-                        <div key={idx} className="w-full h-full flex items-center justify-center bg-gray-200">
-                           <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586 a 2 2 0 012.828 0L20 14m-6-6h.01M6 20h 12 a 2 2 0 002 – 2 V 6 a 2 2 0 00 – 2 – 2 H 6 a 2 2 0 00 – 2 2 v 12 a 2 2 0 00 2 2 z" />
-                           </svg>
-                        </div>
-                     ) : (null)
+                    img.imageData ? (
+                      <img
+                        key={idx}
+                        src={img.imageData}
+                        alt={`${product.name} (${idx + 1})`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (idx === 0) ? (
+                      <div key={idx} className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    ) : null
                   ))}
                 </div>
               ) : (product.images && product.images[0] && product.images[0].imageData) ? (
-                /* One image (or fallback) */
                 <div className="w-full h-48 bg-gray-200">
-                   <img
-                      src={product.images[0].imageData}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/96?text=No+Image'; }}
-                   />
+                  <img
+                    src={product.images[0].imageData}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               ) : (
-                /* Fallback (no image) */
                 <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                   <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16 l 4.586 – 4.586 a 2 2 0 012.828 0 L 16 16 m – 2 – 2 l 1.586 – 1.586 a 2 2 0 012.828 0 L 20 14 m – 6 – 6 h.01 M 6 20 h 12 a 2 2 0 002 – 2 V 6 a 2 2 0 00 – 2 – 2 H 6 a 2 2 0 00 – 2 2 v 12 a 2 2 0 00 2 2 z" />
-                   </svg>
+                  <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
                 </div>
               )}
               {product.featured && (
@@ -149,31 +146,21 @@ function Products() {
                 <p className="text-sm text-gray-500">{product.brand}</p>
               </div>
               <div className="mt-4">
-                <button
-                  onClick={() => handleAddToCart(product.id)}
-                  disabled={addingToCart === product.id || !product.is_active}
-                  className={`w-full px-4 py-2 rounded-md text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                    addingToCart === product.id
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : product.is_active
-                      ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-                      : 'bg-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  {addingToCart === product.id ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Adding...
-                    </span>
-                  ) : product.is_active ? (
-                    'Add to Cart'
-                  ) : (
-                    'Out of Stock'
-                  )}
-                </button>
+                {product.stock > 0 ? (
+                  <button
+                    className="w-full rounded-md bg-blue-600 text-white px-3 py-2 text-sm font-medium hover:bg-blue-700 transition"
+                    onClick={() => navigate(`/cart?add=${product.id}`)}
+                  >
+                    Shop
+                  </button>
+                ) : (
+                  <button
+                    className="w-full rounded-md bg-gray-200 text-gray-600 px-3 py-2 text-sm font-medium cursor-not-allowed"
+                    disabled
+                  >
+                    Out of Stock
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -127,14 +127,14 @@ app.get('/api/products', async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
-      SELECT p.id, p.name, p.price, p.featured, c.name AS category, b.name AS brand, u.name AS seller, GROUP_CONCAT(pi.image_url) AS images
+      SELECT p.id, p.name, p.price, p.stock, p.featured, c.name AS category, b.name AS brand, u.name AS seller, GROUP_CONCAT(pi.image_url) AS images
       FROM products p
       JOIN categories c ON p.category_id = c.id
       JOIN brands b ON p.brand_id = b.id
       JOIN users u ON p.seller_id = u.id
       LEFT JOIN product_images pi ON p.id = pi.product_id
       WHERE p.is_active = true AND p.is_deleted = false
-      GROUP BY p.id, p.name, p.price, p.featured, c.name, b.name, u.name
+      GROUP BY p.id, p.name, p.price, p.stock, p.featured, c.name, b.name, u.name
       ORDER BY p.featured DESC, p.id
     `);
     await conn.end();
