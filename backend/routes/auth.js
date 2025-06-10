@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const mysql = require('mysql2/promise');
 const { loginValidation, registerValidation } = require('../middleware/validators');
-const { generateToken } = require('../middleware/auth');
+const { generateToken, auth } = require('../middleware/auth');
 
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
@@ -114,6 +114,27 @@ router.get('/me', async (req, res) => {
     res.json(users[0]);
   } catch (error) {
     console.error('Get user error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Validate token route
+router.get('/validate', auth, async (req, res) => {
+  try {
+    const conn = await mysql.createConnection(dbConfig);
+    const [users] = await conn.execute(
+      'SELECT id, name, email, role FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    await conn.end();
+
+    if (users.length === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    res.json(users[0]);
+  } catch (error) {
+    console.error('Token validation error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
