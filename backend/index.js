@@ -209,7 +209,7 @@ app.get('/api/categories', async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(
-      'SELECT id, name, description, is_featured, is_active FROM categories ORDER BY id'
+      'SELECT id, name, description, is_featured, is_active FROM categories WHERE is_deleted = false ORDER BY name'
     );
     await conn.end();
     res.json(rows);
@@ -902,6 +902,114 @@ app.get('/api/cart/count', auth, async (req, res) => {
   } catch (error) {
     console.error('Error getting cart count:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /categories (protected, seller only)
+app.post('/api/categories', auth, async (req, res) => {
+  if (req.user.role !== 'seller') {
+    return res.status(403).json({ error: 'Only sellers can manage categories' });
+  }
+
+  const { name, description, is_featured } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'Category name is required' });
+  }
+
+  try {
+    const conn = await getConnection();
+    const [result] = await conn.execute(
+      'INSERT INTO categories (name, description, is_featured) VALUES (?, ?, ?)',
+      [name, description, is_featured || false]
+    );
+    await conn.end();
+
+    res.status(201).json({
+      id: result.insertId,
+      name,
+      description,
+      is_featured: is_featured || false,
+      is_active: true
+    });
+  } catch (err) {
+    console.error('Error creating category:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT /categories/:id (protected, seller only)
+app.put('/api/categories/:id', auth, async (req, res) => {
+  if (req.user.role !== 'seller') {
+    return res.status(403).json({ error: 'Only sellers can manage categories' });
+  }
+
+  const { id } = req.params;
+  const { name, description, is_featured, is_active } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'Category name is required' });
+  }
+
+  try {
+    const conn = await getConnection();
+    const [result] = await conn.execute(
+      'UPDATE categories SET name = ?, description = ?, is_featured = ?, is_active = ? WHERE id = ? AND is_deleted = false',
+      [name, description, is_featured, is_active, id]
+    );
+    await conn.end();
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    res.json({
+      id,
+      name,
+      description,
+      is_featured,
+      is_active
+    });
+  } catch (err) {
+    console.error('Error updating category:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /categories/:id (protected, seller only)
+app.delete('/api/categories/:id', auth, async (req, res) => {
+  if (req.user.role !== 'seller') {
+    return res.status(403).json({ error: 'Only sellers can manage categories' });
+  }
+
+  const { id } = req.params;
+  try {
+    const conn = await getConnection();
+    
+    // Check if category is in use
+    const [products] = await conn.execute(
+      'SELECT COUNT(*) as count FROM products WHERE category_id = ? AND is_deleted = false',
+      [id]
+    );
+    
+    if (products[0].count > 0) {
+      await conn.end();
+      return res.status(400).json({ error: 'Cannot delete category that has products' });
+    }
+
+    // Soft delete the category
+    const [result] = await conn.execute(
+      'UPDATE categories SET is_deleted = true, deleted_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [id]
+    );
+    await conn.end();
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    res.json({ message: 'Category deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting category:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

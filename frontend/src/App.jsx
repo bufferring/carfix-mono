@@ -10,6 +10,7 @@ import Products from './components/customer/Products';
 import Cart from './components/customer/Cart';
 import SellerDashboard from './components/seller/SellerDashboard';
 import ProductForm from './components/seller/ProductForm';
+import CategoryManagement from './components/seller/CategoryManagement';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 
@@ -45,6 +46,14 @@ function App() {
             element={
               <ProtectedRoute roles={['seller']}>
                 <SellerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/seller/categories"
+            element={
+              <ProtectedRoute roles={['seller']}>
+                <CategoryManagement />
               </ProtectedRoute>
             }
           />

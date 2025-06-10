@@ -6,12 +6,6 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
 const MAX_IMAGES = 5;
 
-const CATEGORY_OPTIONS = [
-  { value: '1', label: 'Engine Parts' },
-  { value: '2', label: 'Brake Systems' },
-  { value: '3', label: 'Suspension' },
-  { value: '4', label: 'Electrical' },
-];
 const BRAND_OPTIONS = [
   { value: '1', label: 'Toyota' },
   { value: '2', label: 'Honda' },
@@ -38,7 +32,24 @@ const ProductForm = () => {
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [imageErrors, setImageErrors] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [product, setProduct] = useState({ name: '', description: '', price: '', category_id: '', brand_id: '', stock: '', featured: false, is_active: true, images: [] });
+
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/categories');
+        if (!response.ok) throw new Error('Failed to fetch categories');
+        const data = await response.json();
+        setCategories(data.filter(cat => cat.is_active));
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+        setServerError('Failed to load categories');
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Prefill logic for edit mode
   useEffect(() => {
@@ -327,9 +338,9 @@ const ProductForm = () => {
               required
             >
               <option value="">Select a category</option>
-              {CATEGORY_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
                 </option>
               ))}
             </select>
