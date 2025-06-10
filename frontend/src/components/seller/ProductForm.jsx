@@ -1,29 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
+const MAX_IMAGES = 5;
+
+const CATEGORY_OPTIONS = [
+  { value: '1', label: 'Engine Parts' },
+  { value: '2', label: 'Brake Systems' },
+  { value: '3', label: 'Suspension' },
+  { value: '4', label: 'Electrical' },
+];
+const BRAND_OPTIONS = [
+  { value: '1', label: 'Toyota' },
+  { value: '2', label: 'Honda' },
+  { value: '3', label: 'Ford' },
+  { value: '4', label: 'BMW' },
+];
+
+const getImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  return `http://localhost:3000${url}`;
+};
 
 const ProductForm = () => {
   const navigate = useNavigate();
+  const { id: productId } = useParams();
   const { token } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
+  const isEdit = Boolean(productId);
+
+  const [isLoading, setIsLoading] = useState(isEdit);
+  const [isSaving, setIsSaving] = useState(false);
   const [serverError, setServerError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [imageErrors, setImageErrors] = useState([]);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category_id: '',
-    brand_id: '',
-    stock: '',
-    featured: false
-  });
+  const [product, setProduct] = useState({ name: '', description: '', price: '', category_id: '', brand_id: '', stock: '', featured: false, is_active: true, images: [] });
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
-  const MAX_IMAGES = 5;
+  // Prefill logic for edit mode
+  useEffect(() => {
+    if (!isEdit) return;
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/seller/products/${productId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!response.ok) throw new Error('Failed to fetch product');
+        const data = await response.json();
+        // (Ensure price and stock are strings, and images is an array (or empty array if none).)
+        const updatedProduct = { ...data, price: data.price.toString(), stock: (data.stock || '').toString(), images: (data.images || []) };
+        setProduct(updatedProduct);
+        localStorage.setItem('editProduct', JSON.stringify(updatedProduct));
+      } catch (error) { setServerError(error.message); } finally { setIsLoading(false); }
+    };
+    fetchProduct();
+  }, [isEdit, productId, token]);
 
   const validateImage = (file) => {
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -72,15 +104,21 @@ const ProductForm = () => {
     }
   };
 
-  const removeImage = (index) => {
-    setImageFiles(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
-    setImageErrors(prev => prev.filter((_, i) => i !== index));
+  const removeImage = (index, isExisting = false) => {
+    if (isExisting) {
+      setProduct(prev => ({
+        ...prev,
+        images: prev.images.map((img, i) => (i === index ? { ...img, markedForDelete: true } : img))
+      }));
+    } else {
+      setImageFiles(prev => prev.filter((_, i) => i !== index));
+      setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    }
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setProduct(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
@@ -88,12 +126,12 @@ const ProductForm = () => {
 
   const validateForm = () => {
     const errors = [];
-    if (!formData.name.trim()) errors.push('Product name is required');
-    if (!formData.description.trim()) errors.push('Description is required');
-    if (!formData.price || parseFloat(formData.price) <= 0) errors.push('Valid price is required');
-    if (!formData.category_id) errors.push('Category is required');
-    if (!formData.brand_id) errors.push('Brand is required');
-    if (!formData.stock || parseInt(formData.stock) < 0) errors.push('Valid stock quantity is required');
+    if (!product.name.trim()) errors.push('Product name is required');
+    if (!product.description.trim()) errors.push('Description is required');
+    if (!product.price || parseFloat(product.price) <= 0) errors.push('Valid price is required');
+    if (!product.category_id) errors.push('Category is required');
+    if (!product.brand_id) errors.push('Brand is required');
+    if (!product.stock || parseInt(product.stock) < 0) errors.push('Valid stock quantity is required');
 
     if (errors.length > 0) {
       setServerError(errors.join(', '));
@@ -111,66 +149,100 @@ const ProductForm = () => {
       return;
     }
 
-    if (imageFiles.length === 0) {
+    if (product.images.length + imageFiles.length === 0) {
       setImageErrors(['At least one product image is required']);
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
 
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('price', parseFloat(formData.price));
-      formDataToSend.append('category_id', parseInt(formData.category_id));
-      formDataToSend.append('brand_id', parseInt(formData.brand_id));
-      formDataToSend.append('stock', parseInt(formData.stock));
-      formDataToSend.append('featured', formData.featured ? '1' : '0');
+      formDataToSend.append('name', product.name);
+      formDataToSend.append('description', product.description);
+      formDataToSend.append('price', parseFloat(product.price));
+      formDataToSend.append('category_id', parseInt(product.category_id));
+      formDataToSend.append('brand_id', parseInt(product.brand_id));
+      formDataToSend.append('stock', parseInt(product.stock));
+      formDataToSend.append('featured', product.featured ? '1' : '0');
+      formDataToSend.append('is_active', product.is_active ? '1' : '0');
 
-      // Append each image file
+      // For edit: add images to delete
+      if (isEdit) {
+        const imagesToDelete = product.images.filter(img => img.markedForDelete);
+        if (imagesToDelete.length > 0) {
+          formDataToSend.append('delete_images', JSON.stringify(imagesToDelete.map(img => img.id)));
+        }
+      }
+
+      // Append new image files
       imageFiles.forEach((file) => {
         formDataToSend.append('images', file);
       });
 
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+      const url = isEdit ? `/api/seller/products/${productId}` : '/api/products';
+      const method = isEdit ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formDataToSend
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create product');
+        throw new Error(data.error || 'Failed to save product');
       }
 
       // Show success message
-      setSuccessMessage('Product created successfully!');
-      
+      setSuccessMessage(isEdit ? 'Product updated successfully!' : 'Product created successfully!');
+      // Update localStorage with latest product data (for edit mode)
+      if (isEdit) {
+        localStorage.setItem('editProduct', JSON.stringify(data));
+      }
       // Clear form
-      setFormData({
+      setProduct({
         name: '',
         description: '',
         price: '',
         category_id: '',
         brand_id: '',
         stock: '',
-        featured: false
+        featured: false,
+        is_active: true,
+        images: []
       });
       setImageFiles([]);
       setImagePreviews([]);
-      
+      // Refetch product details before redirecting
+      if (isEdit) {
+        setIsLoading(true);
+        try {
+          const response = await fetch(`/api/seller/products/${productId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const updatedProduct = await response.json();
+            const newProduct = { ...updatedProduct, price: updatedProduct.price.toString(), stock: (updatedProduct.stock || '').toString(), images: (updatedProduct.images || []) };
+            setProduct(newProduct);
+            localStorage.setItem('editProduct', JSON.stringify(newProduct));
+          }
+        } catch {}
+        setIsLoading(false);
+      }
+      // Remove localStorage item for edit mode
+      if (isEdit) { localStorage.removeItem('editProduct'); }
       // Redirect after a short delay
       setTimeout(() => {
         navigate('/seller/dashboard');
       }, 2000);
+      // (Optional) trigger a refetch of the product list (for example, via a global event or callback) so that the dashboard is also updated.
+      // (For example, dispatch a custom event (e.g. 'productUpdated') so that SellerDashboard can listen and refetch.)
+      window.dispatchEvent(new Event('productUpdated'));
     } catch (error) {
-      setServerError(error.message || 'Failed to create product');
+      setServerError(error.message || 'Failed to save product');
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -196,7 +268,7 @@ const ProductForm = () => {
           <input
             type="text"
             name="name"
-            value={formData.name}
+            value={product.name}
             onChange={handleChange}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             required
@@ -207,7 +279,7 @@ const ProductForm = () => {
           <label className="block text-sm font-medium text-gray-700">Description</label>
           <textarea
             name="description"
-            value={formData.description}
+            value={product.description}
             onChange={handleChange}
             rows="4"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -221,7 +293,7 @@ const ProductForm = () => {
             <input
               type="number"
               name="price"
-              value={formData.price}
+              value={product.price}
               onChange={handleChange}
               step="0.01"
               min="0"
@@ -235,7 +307,7 @@ const ProductForm = () => {
             <input
               type="number"
               name="stock"
-              value={formData.stock}
+              value={product.stock}
               onChange={handleChange}
               min="0"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -249,16 +321,17 @@ const ProductForm = () => {
             <label className="block text-sm font-medium text-gray-700">Category</label>
             <select
               name="category_id"
-              value={formData.category_id}
+              value={product.category_id}
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             >
               <option value="">Select a category</option>
-              <option value="1">Engine Parts</option>
-              <option value="2">Brake Systems</option>
-              <option value="3">Suspension</option>
-              <option value="4">Electrical</option>
+              {CATEGORY_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -266,16 +339,17 @@ const ProductForm = () => {
             <label className="block text-sm font-medium text-gray-700">Brand</label>
             <select
               name="brand_id"
-              value={formData.brand_id}
+              value={product.brand_id}
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             >
               <option value="">Select a brand</option>
-              <option value="1">Toyota</option>
-              <option value="2">Honda</option>
-              <option value="3">Ford</option>
-              <option value="4">BMW</option>
+              {BRAND_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -285,7 +359,7 @@ const ProductForm = () => {
             <input
               type="checkbox"
               name="featured"
-              checked={formData.featured}
+              checked={product.featured}
               onChange={handleChange}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
@@ -345,14 +419,19 @@ const ProductForm = () => {
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
               {imagePreviews.map((preview, index) => (
                 <div key={index} className="relative">
-                  <img
-                    src={preview}
-                    alt={`Preview ${index + 1}`}
-                    className="h-24 w-24 object-cover rounded-lg"
-                  />
+                  {preview ? (
+                    <img
+                      src={preview}
+                      alt={`Preview ${index + 1}`}
+                      className="h-24 w-24 object-cover rounded-lg"
+                      onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/96?text=No+Image'; }}
+                    />
+                  ) : (
+                    <span style={{ display: "inline-block", width: "100px", height: "100px", lineHeight: "100px", textAlign: "center", background: "#eee", color: "#666" }}>No image</span>
+                  )}
                   <button
                     type="button"
-                    onClick={() => removeImage(index)}
+                    onClick={() => removeImage(index, false)}
                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -363,19 +442,50 @@ const ProductForm = () => {
               ))}
             </div>
           )}
+
+          {product.images.filter(img => !img.markedForDelete).length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Current Images</h3>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                {product.images.filter(img => !img.markedForDelete).map((image, filteredIndex) => {
+                  const originalIndex = product.images.findIndex(img => img.id === image.id);
+                  return (
+                    <div key={image.id} className="relative">
+                      {image.imageData ? (
+                        <img
+                          src={image.imageData}
+                          alt={`Product ${filteredIndex + 1}`}
+                          className="h-24 w-24 object-cover rounded-lg"
+                          onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/96?text=No+Image'; }}
+                        />
+                      ) : (
+                        <span style={{ display: "inline-block", width: "100px", height: "100px", lineHeight: "100px", textAlign: "center", background: "#eee", color: "#666" }}>No image</span>
+                      )}
+                      <button type="button" onClick={() => removeImage(originalIndex, true)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                      {image.is_primary && <span className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">Primary</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isSaving}
             className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
-              isLoading
+              isSaving
                 ? 'bg-blue-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
             }`}
           >
-            {isLoading ? 'Creating...' : 'Create Product'}
+            {isSaving ? 'Saving...' : 'Save Product'}
           </button>
         </div>
       </form>

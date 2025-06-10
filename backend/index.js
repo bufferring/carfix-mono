@@ -53,8 +53,42 @@ const upload = multer({
   }
 });
 
-// Serve uploaded files
-app.use('/uploads', express.static(uploadsDir));
+// Serve uploaded files (images) via a custom middleware (business-level solution) so that images are always served (and CORS allowed) regardless of deployment.
+app.use('/uploads', (req, res, next) => {
+  // (Optional) restrict to your frontend origin in production, e.g. res.header('Access-Control-Allow-Origin', 'https://myfrontend.com');
+  res.header('Access-Control-Allow-Origin', '*');
+  // (Optional) if you want to prepend a dynamic base URL (e.g. for deployed environments) to image URLs, you can do so here.
+  // (In our case, the backend already prepends req.protocol + '://' + req.get('host') in the API endpoints, so this middleware is not strictly needed.)
+  // (If you do not need dynamic base URL prepending, you can remove this middleware.)
+  const baseUrl = req.protocol + '://' + req.get('host');
+  req.baseUrl = baseUrl; // (or use res.locals, etc.)
+  next();
+}, (req, res, next) => {
+  // (Custom middleware) read the file from disk (uploadsDir) and stream it (with CORS headers) so that images are always served (and CORS allowed) regardless of deployment.
+  const filePath = path.join(uploadsDir, req.url.replace(/^\/uploads\//, ''));
+  fs.stat(filePath, (err, stat) => {
+    if (err) {
+      console.error("Error stat'ing file:", err);
+      return res.status(404).send("File not found");
+    }
+    const stream = fs.createReadStream(filePath);
+    stream.on("error", (err) => {
+      console.error("Error streaming file:", err);
+      res.status(500).send("Internal Server Error");
+    });
+    res.setHeader("Content-Type", (() => {
+      const ext = path.extname(filePath).toLowerCase();
+      switch (ext) {
+        case ".png": return "image/png";
+        case ".jpg": case ".jpeg": return "image/jpeg";
+        case ".gif": return "image/gif";
+        default: return "application/octet-stream";
+      }
+    })());
+    res.setHeader("Content-Length", stat.size);
+    stream.pipe(res);
+  });
+});
 
 // Database configuration
 const dbConfig = {
@@ -245,20 +279,20 @@ app.get('/api/notifications', auth, async (req, res) => {
 
 // GET /seller/products (protected, seller only)
 app.get('/api/seller/products', auth, async (req, res) => {
-  // Check if user is a seller
   if (req.user.role !== 'seller') {
     return res.status(403).json({ error: 'Only sellers can access their products' });
   }
-
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
       SELECT 
         p.id, p.name, p.description, p.price, p.stock, p.featured,
         p.is_active, p.created_at, p.updated_at,
+        p.category_id, p.brand_id,
         c.name AS category, b.name AS brand,
         (SELECT COUNT(*) FROM orders o JOIN order_items oi ON o.id = oi.order_id WHERE oi.product_id = p.id) as total_orders,
-        (SELECT SUM(oi.quantity) FROM orders o JOIN order_items oi ON o.id = oi.order_id WHERE oi.product_id = p.id) as total_sold
+        (SELECT SUM(oi.quantity) FROM orders o JOIN order_items oi ON o.id = oi.order_id WHERE oi.product_id = p.id) as total_sold,
+        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) AS image_url
       FROM products p
       JOIN categories c ON p.category_id = c.id
       JOIN brands b ON p.brand_id = b.id
@@ -266,6 +300,35 @@ app.get('/api/seller/products', auth, async (req, res) => {
       ORDER BY p.created_at DESC
     `, [req.user.id]);
     await conn.end();
+    rows.forEach(product => {
+      // Ensure IDs are strings
+      product.category_id = product.category_id?.toString() || '';
+      product.brand_id = product.brand_id?.toString() || '';
+      // Fix image URLs
+      if (product.image_url) {
+        if (product.image_url.startsWith('/uploads/')) {
+          const filePath = path.join(uploadsDir, product.image_url.replace(/^\/uploads\//, ''));
+          try {
+            const data = fs.readFileSync(filePath);
+            const ext = path.extname(filePath).toLowerCase();
+            let mime = "image/png"; // (or "application/octet-stream" if ext is unknown)
+            switch (ext) {
+              case ".png": mime = "image/png"; break;
+              case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
+              case ".gif": mime = "image/gif"; break;
+            }
+            product.imageData = "data:" + mime + ";base64," + data.toString("base64");
+          } catch (err) {
+            console.error("Error reading file (inline) (for product " + product.id + "):", err);
+            product.imageData = null;
+          }
+        } else {
+          product.imageData = req.protocol + '://' + req.get('host') + product.image_url;
+        }
+      } else {
+        product.imageData = null;
+      }
+    });
     res.json(rows);
   } catch (err) {
     console.error('Error fetching seller products:', err);
@@ -273,52 +336,235 @@ app.get('/api/seller/products', auth, async (req, res) => {
   }
 });
 
+// GET /api/seller/products/:id (protected, seller only)
+app.get('/api/seller/products/:id', auth, async (req, res) => {
+  if (req.user.role !== 'seller') {
+    return res.status(403).json({ error: 'Only sellers can access their products' });
+  }
+  const { id } = req.params;
+  const conn = await getConnection();
+  try {
+    const [rows] = await conn.execute(`
+      SELECT p.*, p.category_id, p.brand_id, c.name AS category_name, b.name AS brand_name, GROUP_CONCAT(pi.id, ':', pi.image_url, ':', pi.is_primary) AS images
+      FROM products p
+      LEFT JOIN product_images pi ON p.id = pi.product_id
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN brands b ON p.brand_id = b.id
+      WHERE p.id = ? AND p.seller_id = ? AND p.is_deleted = false
+      GROUP BY p.id
+    `, [id, req.user.id]);
+    if (rows.length === 0) {
+      await conn.end();
+      return res.status(404).json({ error: 'Product not found or unauthorized' });
+    }
+    const product = rows[0];
+    // Ensure IDs are strings
+    product.category_id = product.category_id?.toString() || '';
+    product.brand_id = product.brand_id?.toString() || '';
+    // Fix image URLs
+    if (product.images) {
+      product.images = product.images.split(',').map(img => {
+        const [id, url, is_primary] = img.split(':');
+        let imageData = null;
+        if (url && url.startsWith('/uploads/')) {
+          const filePath = path.join(uploadsDir, url.replace(/^\/uploads\//, ''));
+          try {
+            const data = fs.readFileSync(filePath);
+            const ext = path.extname(filePath).toLowerCase();
+            let mime = "image/png";
+            switch (ext) {
+              case ".png": mime = "image/png"; break;
+              case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
+              case ".gif": mime = "image/gif"; break;
+            }
+            imageData = "data:" + mime + ";base64," + data.toString("base64");
+          } catch (err) {
+            console.error("Error reading file (inline) (for image " + id + "):", err);
+          }
+        }
+        return { id: parseInt(id), imageData, is_primary: is_primary === '1' };
+      });
+    } else {
+      product.images = [];
+    }
+    await conn.end();
+    res.json(product);
+  } catch (err) {
+    console.error('Error fetching seller product:', err);
+    await conn.end();
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // PUT /seller/products/:id (protected, seller only)
-app.put('/api/seller/products/:id', auth, productValidation, async (req, res) => {
+app.put('/api/seller/products/:id', auth, upload.array('images', 5), productValidation, async (req, res) => {
   // Check if user is a seller
   if (req.user.role !== 'seller') {
     return res.status(403).json({ error: 'Only sellers can update products' });
   }
 
+  const connection = await getConnection();
+  await connection.beginTransaction();
+
   try {
     const { id } = req.params;
-    const { name, description, price, category_id, brand_id, stock, featured, is_active } = req.body;
-    const conn = await getConnection();
+    const { name, description, price, category_id, brand_id, stock, featured, is_active, delete_images } = req.body;
 
     // Verify product belongs to seller
-    const [products] = await conn.execute(
-      'SELECT id FROM products WHERE id = ? AND seller_id = ?',
+    const [products] = await connection.execute(
+      'SELECT id FROM products WHERE id = ? AND seller_id = ? AND is_deleted = false',
       [id, req.user.id]
     );
 
     if (products.length === 0) {
-      await conn.end();
+      await connection.rollback();
+      await connection.end();
       return res.status(404).json({ error: 'Product not found or unauthorized' });
     }
 
     // Update product
-    await conn.execute(`
+    await connection.execute(`
       UPDATE products 
-      SET name = ?, description = ?, price = ?, category_id = ?, 
-          brand_id = ?, stock = ?, featured = ?, is_active = ?,
+      SET name = ?, 
+          description = ?, 
+          price = ?, 
+          category_id = ?, 
+          brand_id = ?, 
+          stock = ?, 
+          featured = ?,
+          is_active = ?,
           updated_at = NOW()
       WHERE id = ? AND seller_id = ?
-    `, [name, description, price, category_id, brand_id, stock, featured, is_active, id, req.user.id]);
+    `, [
+      name,
+      description,
+      parseFloat(price),
+      parseInt(category_id),
+      parseInt(brand_id),
+      parseInt(stock),
+      featured === '1' ? 1 : 0,
+      is_active === '1' ? 1 : 0,
+      id,
+      req.user.id
+    ]);
 
-    // Get updated product
-    const [updatedProduct] = await conn.execute(`
-      SELECT p.*, c.name AS category, b.name AS brand
+    // Handle image deletions if specified
+    if (delete_images) {
+      const imageIds = JSON.parse(delete_images);
+      if (Array.isArray(imageIds) && imageIds.length > 0) {
+        // Build placeholders for the IN clause
+        const placeholders = imageIds.map(() => '?').join(',');
+        // Get image URLs before deletion for cleanup
+        const [imagesToDelete] = await connection.execute(
+          `SELECT image_url FROM product_images WHERE id IN (${placeholders}) AND product_id = ?`,
+          [...imageIds, id]
+        );
+        // Delete images from database
+        await connection.execute(
+          `DELETE FROM product_images WHERE id IN (${placeholders}) AND product_id = ?`,
+          [...imageIds, id]
+        );
+        // Delete image files
+        for (const image of imagesToDelete) {
+          const imagePath = path.join(__dirname, image.image_url.replace('/uploads/', ''));
+          fs.unlink(imagePath, (err) => {
+            if (err) console.error('Error deleting image file:', err);
+          });
+        }
+      }
+    }
+
+    // Check if there are any images left after deletion
+    let imagesLeft = 0;
+    const [imgCountRows] = await connection.execute(
+      'SELECT COUNT(*) as count FROM product_images WHERE product_id = ?',
+      [id]
+    );
+    if (imgCountRows && imgCountRows[0]) {
+      imagesLeft = imgCountRows[0].count;
+    }
+    // Insert new images
+    if (req.files && req.files.length > 0) {
+      for (const [idx, file] of req.files.entries()) {
+        await connection.execute(
+          `INSERT INTO product_images (product_id, image_url, is_primary, created_at)
+           VALUES (?, ?, ?, NOW())`,
+          [
+            id,
+            `/uploads/${file.filename}`,
+            imagesLeft === 0 && idx === 0 ? 1 : 0 // Set first new image as primary if no images left
+          ]
+        );
+      }
+    }
+
+    // Commit transaction
+    await connection.commit();
+
+    // Fetch updated product (using a LEFT JOIN) so that the response includes an array of images (each with id, imageData (base64 inline), and is_primary) (or an empty array if none).
+    const [updatedProducts] = await connection.execute(`
+      SELECT p.id, p.name, p.description, p.price, p.stock, p.featured, p.is_active, p.created_at, p.updated_at, p.category_id, p.brand_id, c.name AS category, b.name AS brand, pi.id AS image_id, pi.image_url, pi.is_primary
       FROM products p
       JOIN categories c ON p.category_id = c.id
       JOIN brands b ON p.brand_id = b.id
+      LEFT JOIN product_images pi ON p.id = pi.product_id
       WHERE p.id = ?
+      ORDER BY pi.is_primary DESC, pi.id ASC
     `, [id]);
-
-    await conn.end();
-    res.json(updatedProduct[0]);
-  } catch (err) {
-    console.error('Error updating product:', err);
-    res.status(500).json({ error: 'Server error' });
+    if (updatedProducts.length === 0) {
+       await connection.end();
+       return res.status(404).json({ error: "Updated product not found." });
+    }
+    const product = { ...updatedProducts[0], images: [] };
+    // Ensure IDs are strings (for consistency)
+    product.category_id = product.category_id?.toString() || '';
+    product.brand_id = product.brand_id?.toString() || '';
+    // Loop over rows (one per image) and build an array of images (each with id, imageData (base64 inline), and is_primary) (or an empty array if none).
+    updatedProducts.forEach((row) => {
+      if (row.image_id) {
+         let imageData = null;
+         if (row.image_url && row.image_url.startsWith('/uploads/')) {
+            const filePath = path.join(uploadsDir, row.image_url.replace(/^\/uploads\//, ''));
+            try {
+               const data = fs.readFileSync(filePath);
+               const ext = path.extname(filePath).toLowerCase();
+               let mime = "image/png";
+               switch (ext) {
+                  case ".png": mime = "image/png"; break;
+                  case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
+                  case ".gif": mime = "image/gif"; break;
+               }
+               imageData = "data:" + mime + ";base64," + data.toString("base64");
+            } catch (err) {
+               console.error("Error reading file (inline) (for image " + row.image_id + "):", err);
+            }
+         } else if (row.image_url) {
+            imageData = req.protocol + '://' + req.get('host') + row.image_url;
+         }
+         product.images.push({ id: row.image_id, imageData, is_primary: row.is_primary === 1 });
+      }
+    });
+    await connection.end();
+    res.json(product);
+  } catch (error) {
+    // Rollback transaction on error
+    await connection.rollback();
+    
+    // Delete uploaded files if there was an error
+    if (req.files) {
+      req.files.forEach(file => {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error('Error deleting file:', err);
+        });
+      });
+    }
+    
+    console.error('Error updating product:', error);
+    res.status(500).json({ error: error.message || 'Server error' });
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
   }
 });
 

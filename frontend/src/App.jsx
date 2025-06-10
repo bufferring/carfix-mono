@@ -50,6 +50,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/seller/products/edit/:id"
+            element={
+              <ProtectedRoute roles={['seller']}>
+                <ProductForm />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />

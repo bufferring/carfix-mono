@@ -148,3 +148,4 @@ DROP FUNCTION IF EXISTS insert_user_if_not_exists;
 
 -- Commit the transaction
 COMMIT;
+ 

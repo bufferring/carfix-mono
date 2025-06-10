@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 function SellerDashboard() {
@@ -7,27 +7,35 @@ function SellerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { token } = useAuth();
+  const navigate = useNavigate();
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/seller/products', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch products');
+      const data = await response.json();
+      setProducts(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch('/api/seller/products', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (!response.ok) throw new Error('Failed to fetch products');
-        const data = await response.json();
-        setProducts(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProducts();
-  }, [token]);
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    const handleProductUpdated = () => { fetchProducts(); };
+    window.addEventListener('productUpdated', handleProductUpdated);
+    return () => { window.removeEventListener('productUpdated', handleProductUpdated); };
+  }, [fetchProducts]);
 
   const handleDelete = async (productId) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
@@ -126,6 +134,9 @@ function SellerDashboard() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                      Thumb
+                    </th>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
                       Product
                     </th>
                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
@@ -152,14 +163,18 @@ function SellerDashboard() {
                   {products.map((product) => (
                     <tr key={product.id}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                        {product.imageData ? (
+                          <img
+                            src={product.imageData}
+                            alt={product.name}
+                            style={{ width: '50px', height: '50px', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <span style={{ display: "inline-block", width: "50px", height: "50px", lineHeight: "50px", textAlign: "center", background: "#eee", color: "#666" }}>No image</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 flex-shrink-0">
-                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                          </div>
                           <div className="ml-4">
                             <div className="font-medium text-gray-900">{product.name}</div>
                             <div className="text-gray-500">{product.brand}</div>
@@ -193,12 +208,12 @@ function SellerDashboard() {
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                         <div className="flex justify-end space-x-2">
-                          <Link
-                            to={`/seller/products/edit/${product.id}`}
+                          <button
+                            onClick={() => { localStorage.setItem('editProduct', JSON.stringify(product)); navigate(`/seller/products/edit/${product.id}`); }}
                             className="text-blue-600 hover:text-blue-900"
                           >
                             Edit
-                          </Link>
+                          </button>
                           <button
                             onClick={() => handleDelete(product.id)}
                             className="text-red-600 hover:text-red-900"
