@@ -127,16 +127,48 @@ app.get('/api/products', async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
-      SELECT p.id, p.name, p.price, p.featured, c.name AS category, b.name AS brand, u.name AS seller
+      SELECT p.id, p.name, p.price, p.featured, c.name AS category, b.name AS brand, u.name AS seller, GROUP_CONCAT(pi.image_url) AS images
       FROM products p
       JOIN categories c ON p.category_id = c.id
       JOIN brands b ON p.brand_id = b.id
       JOIN users u ON p.seller_id = u.id
+      LEFT JOIN product_images pi ON p.id = pi.product_id
       WHERE p.is_active = true AND p.is_deleted = false
+      GROUP BY p.id, p.name, p.price, p.featured, c.name, b.name, u.name
       ORDER BY p.featured DESC, p.id
     `);
     await conn.end();
-    res.json(rows);
+    const products = rows.map(product => {
+      let images = [];
+      if (product.images) {
+         images = product.images.split(',').map(url => {
+            let imageData = null;
+            if (url && url.startsWith('/uploads/')) {
+               const filePath = path.join(uploadsDir, url.replace(/^\/uploads\//, ''));
+               try {
+                  const data = fs.readFileSync(filePath);
+                  const ext = path.extname(filePath).toLowerCase();
+                  let mime = "image/png";
+                  switch (ext) {
+                     case ".png": mime = "image/png"; break;
+                     case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
+                     case ".gif": mime = "image/gif"; break;
+                  }
+                  imageData = "data:" + mime + ";base64," + data.toString("base64");
+               } catch (err) {
+                  console.error("Error reading file (inline) (for product " + product.id + "):", err);
+               }
+            } else if (url) {
+               imageData = req.protocol + '://' + req.get('host') + url;
+            }
+            return { imageData };
+         });
+      }
+      delete product.images; // remove the raw GROUP_CONCAT field
+      product.images = images;
+      return product;
+    });
+    res.json(products);
   } catch (err) {
     console.error('Error fetching products:', err);
     res.status(500).json({ error: 'Server error' });

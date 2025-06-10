@@ -94,14 +94,45 @@ function Products() {
             }`}
           >
             <div className="relative">
-              {/* Product image placeholder */}
-              <div className="aspect-w-1 aspect-h-1 w-full bg-gray-200">
-                <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                  <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+              {product.images && product.images.length > 1 ? (
+                /* Mosaic (grid) for two or more images */
+                <div className="grid grid-cols-2 gap-1 w-full h-48 bg-gray-200">
+                  {product.images.slice(0, 4).map((img, idx) => (
+                     (img.imageData) ? (
+                        <img
+                           key={idx}
+                           src={img.imageData}
+                           alt={`${product.name} (${idx + 1})`}
+                           className="w-full h-full object-cover"
+                           onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/96?text=No+Image'; }}
+                        />
+                     ) : (idx === 0) ? (
+                        <div key={idx} className="w-full h-full flex items-center justify-center bg-gray-200">
+                           <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586 a 2 2 0 012.828 0L20 14m-6-6h.01M6 20h 12 a 2 2 0 002 – 2 V 6 a 2 2 0 00 – 2 – 2 H 6 a 2 2 0 00 – 2 2 v 12 a 2 2 0 00 2 2 z" />
+                           </svg>
+                        </div>
+                     ) : (null)
+                  ))}
                 </div>
-              </div>
+              ) : (product.images && product.images[0] && product.images[0].imageData) ? (
+                /* One image (or fallback) */
+                <div className="w-full h-48 bg-gray-200">
+                   <img
+                      src={product.images[0].imageData}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/96?text=No+Image'; }}
+                   />
+                </div>
+              ) : (
+                /* Fallback (no image) */
+                <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                   <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16 l 4.586 – 4.586 a 2 2 0 012.828 0 L 16 16 m – 2 – 2 l 1.586 – 1.586 a 2 2 0 012.828 0 L 20 14 m – 6 – 6 h.01 M 6 20 h 12 a 2 2 0 002 – 2 V 6 a 2 2 0 00 – 2 – 2 H 6 a 2 2 0 00 – 2 2 v 12 a 2 2 0 00 2 2 z" />
+                   </svg>
+                </div>
+              )}
               {product.featured && (
                 <div className="absolute top-2 right-2">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
