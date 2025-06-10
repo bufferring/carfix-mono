@@ -1,19 +1,25 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const mysql = require('mysql2/promise');
+const { auth } = require('./middleware/auth');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+// Middleware
+app.use(helmet()); // Security headers
+app.use(cors()); // Enable CORS
+app.use(express.json()); // Parse JSON bodies
 
-// Database connection
+// Database configuration
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASS || 'r00tr00t',
-  database: process.env.DB_NAME || 'carfix',
+  database: process.env.DB_NAME || 'carfix'
 };
 
 // Helper to get a connection
@@ -21,20 +27,27 @@ async function getConnection() {
   return await mysql.createConnection(dbConfig);
 }
 
+// Routes
+app.use('/api/auth', authRoutes);
+
+// Protected routes
 // GET /users
-app.get('/users', async (req, res) => {
+app.get('/api/users', auth, async (req, res) => {
   try {
     const conn = await getConnection();
-    const [rows] = await conn.execute('SELECT id, name, email, role, is_verified, is_active FROM users ORDER BY id');
+    const [rows] = await conn.execute(
+      'SELECT id, name, email, role, is_verified, is_active FROM users ORDER BY id'
+    );
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
 // GET /products
-app.get('/products', async (req, res) => {
+app.get('/api/products', async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
@@ -48,53 +61,72 @@ app.get('/products', async (req, res) => {
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching products:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /orders
-app.get('/orders', async (req, res) => {
+// GET /orders (protected, only customer's own orders or all orders for admin)
+app.get('/api/orders', auth, async (req, res) => {
   try {
     const conn = await getConnection();
-    const [rows] = await conn.execute(`
+    let query = `
       SELECT o.id, u.name AS customer, o.total_amount, o.status, o.payment_status
       FROM orders o
       JOIN users u ON o.user_id = u.id
-      ORDER BY o.id
-    `);
+    `;
+    
+    // If not admin, only show user's own orders
+    if (req.user.role !== 'admin') {
+      query += ' WHERE o.user_id = ?';
+    }
+    
+    query += ' ORDER BY o.id';
+    
+    const [rows] = await conn.execute(
+      query,
+      req.user.role !== 'admin' ? [req.user.id] : []
+    );
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching orders:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
 // GET /categories
-app.get('/categories', async (req, res) => {
+app.get('/api/categories', async (req, res) => {
   try {
     const conn = await getConnection();
-    const [rows] = await conn.execute('SELECT id, name, description, is_featured, is_active FROM categories ORDER BY id');
+    const [rows] = await conn.execute(
+      'SELECT id, name, description, is_featured, is_active FROM categories ORDER BY id'
+    );
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching categories:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
 // GET /brands
-app.get('/brands', async (req, res) => {
+app.get('/api/brands', async (req, res) => {
   try {
     const conn = await getConnection();
-    const [rows] = await conn.execute('SELECT id, name, description, is_featured, is_active FROM brands ORDER BY id');
+    const [rows] = await conn.execute(
+      'SELECT id, name, description, is_featured, is_active FROM brands ORDER BY id'
+    );
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching brands:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
 // GET /reviews
-app.get('/reviews', async (req, res) => {
+app.get('/api/reviews', async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
@@ -107,61 +139,71 @@ app.get('/reviews', async (req, res) => {
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching reviews:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /cart
-app.get('/cart', async (req, res) => {
+// GET /cart (protected, only user's own cart)
+app.get('/api/cart', auth, async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
-      SELECT c.id, u.name AS customer, p.name AS product, c.quantity
+      SELECT c.id, p.name AS product, c.quantity, p.price
       FROM cart c
-      JOIN users u ON c.user_id = u.id
       JOIN products p ON c.product_id = p.id
+      WHERE c.user_id = ?
       ORDER BY c.id
-    `);
+    `, [req.user.id]);
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching cart:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /wishlist
-app.get('/wishlist', async (req, res) => {
+// GET /wishlist (protected, only user's own wishlist)
+app.get('/api/wishlist', auth, async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
-      SELECT w.id, u.name AS customer, p.name AS product
+      SELECT w.id, p.name AS product, p.price
       FROM wishlist w
-      JOIN users u ON w.user_id = u.id
       JOIN products p ON w.product_id = p.id
+      WHERE w.user_id = ?
       ORDER BY w.id
-    `);
+    `, [req.user.id]);
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching wishlist:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /notifications
-app.get('/notifications', async (req, res) => {
+// GET /notifications (protected, only user's own notifications)
+app.get('/api/notifications', auth, async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
-      SELECT n.id, u.name AS user, n.title, n.message, n.type, n.is_read
-      FROM notifications n
-      JOIN users u ON n.user_id = u.id
-      ORDER BY n.id
-    `);
+      SELECT id, title, message, type, is_read, created_at
+      FROM notifications
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `, [req.user.id]);
     await conn.end();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching notifications:', err);
+    res.status(500).json({ error: 'Server error' });
   }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
 });
 
 app.listen(PORT, () => {
