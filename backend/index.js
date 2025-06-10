@@ -3,9 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const mysql = require('mysql2/promise');
-const { auth } = require('./middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { auth, generateToken } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 const { productValidation } = require('./middleware/validators');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +18,43 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet()); // Security headers
 app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON bodies
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
+
+// Serve uploaded files
+app.use('/uploads', express.static(uploadsDir));
 
 // Database configuration
 const dbConfig = {
@@ -317,64 +358,93 @@ app.delete('/api/seller/products/:id', auth, async (req, res) => {
   }
 });
 
-// POST /products (protected, seller only)
-app.post('/api/products', auth, productValidation, async (req, res) => {
+// Create product endpoint (protected, seller only)
+app.post('/api/products', auth, upload.array('images', 5), productValidation, async (req, res) => {
   // Check if user is a seller
   if (req.user.role !== 'seller') {
     return res.status(403).json({ error: 'Only sellers can create products' });
   }
 
+  const connection = await getConnection();
+  await connection.beginTransaction();
+
   try {
-    const { name, description, price, category_id, brand_id, stock, images, featured } = req.body;
-    const conn = await getConnection();
+    const { name, description, price, category_id, brand_id, stock, featured } = req.body;
 
-    // Start transaction
-    await conn.beginTransaction();
+    // Insert product
+    const [result] = await connection.execute(
+      `INSERT INTO products (
+        name, description, price, category_id, brand_id, 
+        seller_id, stock, featured, is_active, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, NOW())`,
+      [
+        name,
+        description,
+        parseFloat(price),
+        parseInt(category_id),
+        parseInt(brand_id),
+        req.user.id,
+        parseInt(stock),
+        featured === '1' ? 1 : 0
+      ]
+    );
 
-    try {
-      // Insert product
-      const [result] = await conn.execute(
-        `INSERT INTO products (
-          name, description, price, category_id, brand_id, 
-          seller_id, stock, featured, is_active, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, NOW())`,
-        [name, description, price, category_id, brand_id, req.user.id, stock, featured || false]
-      );
+    const productId = result.insertId;
 
-      const productId = result.insertId;
-
-      // Insert product images if provided
-      if (images && images.length > 0) {
-        const imageValues = images.map(image => [productId, image.url, image.alt || name]);
-        await conn.execute(
-          'INSERT INTO product_images (product_id, image_url, alt_text) VALUES ?',
-          [imageValues]
+    // Handle image uploads
+    if (req.files && req.files.length > 0) {
+      // Insert images one by one to ensure proper error handling
+      for (const file of req.files) {
+        await connection.execute(
+          `INSERT INTO product_images (product_id, image_url, is_primary, created_at)
+           VALUES (?, ?, ?, NOW())`,
+          [productId, `/uploads/${file.filename}`, req.files.indexOf(file) === 0] // First image is primary
         );
       }
-
-      // Commit transaction
-      await conn.commit();
-
-      // Get the created product with its details
-      const [product] = await conn.execute(`
-        SELECT p.*, c.name AS category, b.name AS brand, u.name AS seller
-        FROM products p
-        JOIN categories c ON p.category_id = c.id
-        JOIN brands b ON p.brand_id = b.id
-        JOIN users u ON p.seller_id = u.id
-        WHERE p.id = ?
-      `, [productId]);
-
-      await conn.end();
-      res.status(201).json(product[0]);
-    } catch (error) {
-      // Rollback transaction on error
-      await conn.rollback();
-      throw error;
     }
-  } catch (err) {
-    console.error('Error creating product:', err);
-    res.status(500).json({ error: 'Server error' });
+
+    // Commit transaction
+    await connection.commit();
+
+    // Get the created product with images
+    const [products] = await connection.execute(
+      `SELECT p.*, 
+        GROUP_CONCAT(pi.image_url) as images
+       FROM products p
+       LEFT JOIN product_images pi ON p.id = pi.product_id
+       WHERE p.id = ?
+       GROUP BY p.id`,
+      [productId]
+    );
+
+    // Format the response
+    const product = products[0];
+    if (product.images) {
+      product.images = product.images.split(',');
+    } else {
+      product.images = [];
+    }
+
+    res.status(201).json(product);
+  } catch (error) {
+    // Rollback transaction on error
+    await connection.rollback();
+    
+    // Delete uploaded files if there was an error
+    if (req.files) {
+      req.files.forEach(file => {
+        fs.unlink(file.path, (err) => {
+          if (err) console.error('Error deleting file:', err);
+        });
+      });
+    }
+    
+    console.error('Error creating product:', error);
+    res.status(500).json({ error: error.message || 'Server error' });
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
   }
 });
 
