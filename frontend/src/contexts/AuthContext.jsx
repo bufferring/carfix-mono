@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../api';
 
 const AuthContext = createContext(null);
 
@@ -13,112 +14,67 @@ export const useAuth = () => {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const validateToken = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
+    const token = localStorage.getItem('token');
+    if (token) {
+      validateToken();
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
-      try {
-        const response = await fetch('/api/auth/validate', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Invalid token');
-        }
-
-        const userData = await response.json();
-        setUser(userData);
-      } catch (error) {
-        console.error('Token validation error:', error);
-        localStorage.removeItem('token');
-        setToken(null);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    validateToken();
-  }, [token]);
-
-  const login = async (email, password) => {
+  const validateToken = async () => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Login failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      return data.user;
+      const response = await apiClient.get('/api/auth/validate');
+      setUser(response.data);
     } catch (error) {
-      throw error;
+      console.error('Token validation error:', error);
+      localStorage.removeItem('token');
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const login = async (email, password) => {
+    const response = await apiClient.post('/api/auth/login', { email, password });
+    const { token, user: userData } = response.data;
+    localStorage.setItem('token', token);
+    setUser(userData);
+    return userData;
+  };
+
   const register = async (userData) => {
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(userData)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Registration failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      return data.user;
-    } catch (error) {
-      throw error;
-    }
+    // Primero, registra al usuario. No esperamos nada de esta llamada.
+    await apiClient.post('/api/auth/register', userData);
+    
+    // Después del registro exitoso, inicia sesión automáticamente para obtener el token.
+    // Esto reutiliza la lógica y soluciona el problema de la respuesta vacía.
+    await login(userData.email, userData.password);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    setToken(null);
     setUser(null);
     navigate('/login');
   };
 
+  // Ya no exportamos el 'token'. El apiClient lo maneja internamente.
+  // Los componentes no necesitan saber sobre él.
   const value = {
     user,
-    token,
     loading,
     login,
     register,
-    logout
+    logout,
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -129,4 +85,4 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
-} 
+}
