@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import apiClient from '../../api';
 
 export default function CategoryManagement() {
   const [categories, setCategories] = useState([]);
@@ -7,22 +7,18 @@ export default function CategoryManagement() {
   const [error, setError] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
   const [newCategory, setNewCategory] = useState({ name: '', description: '', is_featured: false });
-  const { token } = useAuth();
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
   const fetchCategories = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/categories', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Failed to fetch categories');
-      const data = await response.json();
-      setCategories(data);
+      const response = await apiClient.get('/api/categories');
+      setCategories(response.data);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message || 'Failed to fetch categories');
     } finally {
       setLoading(false);
     }
@@ -31,80 +27,40 @@ export default function CategoryManagement() {
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/categories', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newCategory)
-      });
-
-      if (!response.ok) throw new Error('Failed to create category');
-      
+      await apiClient.post('/api/categories', newCategory);
       await fetchCategories();
       setNewCategory({ name: '', description: '', is_featured: false });
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message || 'Failed to create category');
     }
   };
 
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`/api/categories/${editingCategory.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(editingCategory)
-      });
-
-      if (!response.ok) throw new Error('Failed to update category');
-      
+      await apiClient.put(`/api/categories/${editingCategory.id}`, editingCategory);
       await fetchCategories();
       setEditingCategory(null);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message || 'Failed to update category');
     }
   };
 
   const handleToggleStatus = async (categoryId, currentStatus) => {
     try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ is_active: !currentStatus })
-      });
-
-      if (!response.ok) throw new Error('Failed to update category status');
-      
+      await apiClient.put(`/api/categories/${categoryId}`, { is_active: !currentStatus });
       await fetchCategories();
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message || 'Failed to update category status');
     }
   };
 
   const handleToggleFeatured = async (categoryId, currentStatus) => {
     try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ is_featured: !currentStatus })
-      });
-
-      if (!response.ok) throw new Error('Failed to update category featured status');
-      
+      await apiClient.put(`/api/categories/${categoryId}`, { is_featured: !currentStatus });
       await fetchCategories();
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.error || err.message || 'Failed to update category featured status');
     }
   };
 
@@ -142,7 +98,6 @@ export default function CategoryManagement() {
         </div>
       )}
 
-      {/* Create/Edit Category Form */}
       <div className="bg-white shadow rounded-lg p-6 mb-8">
         <h2 className="text-lg font-medium text-gray-900 mb-4">
           {editingCategory ? 'Edit Category' : 'Create New Category'}
@@ -150,133 +105,61 @@ export default function CategoryManagement() {
         <form onSubmit={editingCategory ? handleUpdateCategory : handleCreateCategory}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Category Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                id="name"
-                value={editingCategory ? editingCategory.name : newCategory.name}
-                onChange={(e) => editingCategory 
-                  ? setEditingCategory({ ...editingCategory, name: e.target.value })
-                  : setNewCategory({ ...newCategory, name: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
-                required
-              />
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">Category Name</label>
+              <input type="text" name="name" id="name" value={editingCategory ? editingCategory.name : newCategory.name} onChange={(e) => editingCategory ? setEditingCategory({ ...editingCategory, name: e.target.value }) : setNewCategory({ ...newCategory, name: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" required />
             </div>
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                Description
-              </label>
-              <input
-                type="text"
-                name="description"
-                id="description"
-                value={editingCategory ? editingCategory.description : newCategory.description}
-                onChange={(e) => editingCategory
-                  ? setEditingCategory({ ...editingCategory, description: e.target.value })
-                  : setNewCategory({ ...newCategory, description: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
-              />
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
+              <input type="text" name="description" id="description" value={editingCategory ? editingCategory.description : newCategory.description} onChange={(e) => editingCategory ? setEditingCategory({ ...editingCategory, description: e.target.value }) : setNewCategory({ ...newCategory, description: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" />
             </div>
           </div>
           <div className="mt-4">
             <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={editingCategory ? editingCategory.is_featured : newCategory.is_featured}
-                onChange={(e) => editingCategory
-                  ? setEditingCategory({ ...editingCategory, is_featured: e.target.checked })
-                  : setNewCategory({ ...newCategory, is_featured: e.target.checked })
-                }
-                className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-              />
+              <input type="checkbox" checked={editingCategory ? editingCategory.is_featured : newCategory.is_featured} onChange={(e) => editingCategory ? setEditingCategory({ ...editingCategory, is_featured: e.target.checked }) : setNewCategory({ ...newCategory, is_featured: e.target.checked })} className="rounded border-gray-300 text-red-600 focus:ring-red-500" />
               <span className="text-sm font-medium text-gray-700">Featured Category</span>
             </label>
           </div>
           <div className="mt-4 flex justify-end space-x-3">
             {editingCategory && (
-              <button
-                type="button"
-                onClick={() => setEditingCategory(null)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
+              <button type="button" onClick={() => setEditingCategory(null)} className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
                 Cancel
               </button>
             )}
-            <button
-              type="submit"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
+            <button type="submit" className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
               {editingCategory ? 'Update Category' : 'Create Category'}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Categories List */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Description
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Featured
-              </th>
-              <th scope="col" className="relative px-6 py-3">
-                <span className="sr-only">Actions</span>
-              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Featured</th>
+              <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {categories.map((category) => (
               <tr key={category.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {category.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {category.description}
-                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{category.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{category.description}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <button
-                    onClick={() => handleToggleStatus(category.id, category.is_active)}
-                    className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                      category.is_active
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                  >
+                  <button onClick={() => handleToggleStatus(category.id, category.is_active)} className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${category.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                     {category.is_active ? 'Active' : 'Inactive'}
                   </button>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <button
-                    onClick={() => handleToggleFeatured(category.id, category.is_featured)}
-                    className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                      category.is_featured
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
+                  <button onClick={() => handleToggleFeatured(category.id, category.is_featured)} className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${category.is_featured ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
                     {category.is_featured ? 'Featured' : 'Not Featured'}
                   </button>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => setEditingCategory(category)}
-                    className="text-red-600 hover:text-red-900 mr-4"
-                  >
+                  <button onClick={() => setEditingCategory(category)} className="text-red-600 hover:text-red-900 mr-4">
                     Edit
                   </button>
                 </td>
@@ -287,4 +170,4 @@ export default function CategoryManagement() {
       </div>
     </div>
   );
-} 
+}

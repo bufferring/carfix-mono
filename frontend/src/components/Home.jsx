@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import FeaturedSlider from './FeaturedSlider';
+import apiClient from '../api';
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -10,14 +11,12 @@ export default function Home() {
   useEffect(() => {
     const fetchFeaturedProducts = async () => {
       try {
-        const response = await fetch('/api/products?featured=true');
-        if (!response.ok) {
-          throw new Error('Failed to fetch featured products');
-        }
-        const data = await response.json();
-        setFeaturedProducts(data);
+        const response = await apiClient.get('/api/products', {
+          params: { featured: true }
+        });
+        setFeaturedProducts(response.data);
       } catch (err) {
-        setError(err.message);
+        setError(err.response?.data?.error || err.message || 'Failed to fetch featured products');
       } finally {
         setLoading(false);
       }
@@ -133,4 +132,4 @@ export default function Home() {
       </div>
     </div>
   );
-} 
+}

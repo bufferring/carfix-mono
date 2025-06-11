@@ -1,24 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../../api'; 
 
 function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addingToCart, setAddingToCart] = useState(null);
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/products');
-        if (!response.ok) throw new Error('Failed to fetch products');
-        const data = await response.json();
-        setProducts(data);
+        const response = await apiClient.get('/api/products');
+        setProducts(response.data);
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Failed to fetch products');
       } finally {
         setLoading(false);
       }
@@ -28,23 +27,11 @@ function Products() {
   }, []);
 
   const handleAddToCart = async (productId) => {
-    if (!user || user.role !== 'customer') {
-      // TODO: Show login prompt or redirect to login
-      return;
-    }
-
     setAddingToCart(productId);
     try {
-      const response = await fetch('/api/cart', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const response = await apiClient.post('/api/cart', {
           product_id: productId,
           quantity: 1
-        })
       });
 
       if (!response.ok) {
