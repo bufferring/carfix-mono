@@ -1,6 +1,13 @@
 # CarFix - Automotive Parts Management System 🚗
 
-A modern, full-stack application for managing automotive parts inventory, sales, and customer interactions. Built with React, Node.js, and MySQL.
+[![React](https://img.shields.io/badge/React-18-blue?style=for-the-badge&logo=react)](https://reactjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18-green?style=for-the-badge&logo=nodedotjs)](https://nodejs.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8-orange?style=for-the-badge&logo=mysql)](https://www.mysql.com/)
+[![Express](https://img.shields.io/badge/Express-4-black?style=for-the-badge&logo=express)](https://expressjs.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+[![Vite](https://img.shields.io/badge/Vite-4-646CFF?style=for-the-badge&logo=vite)](https://vitejs.dev/)
+
+A modern, full-stack application for managing automotive parts inventory, sales, and customer interactions.
 
 ## 🌟 Features
 
@@ -54,6 +61,15 @@ A modern, full-stack application for managing automotive parts inventory, sales,
 - Node.js (v18 or higher) - Required for Vite and modern React features
 - MySQL (v8 or higher)
 - npm (v7 or higher) or yarn
+
+### Test Credentials
+
+#### Seller Account
+```
+Email: manny@carfixve.app
+Password: (contact administrator for password)
+Role: seller
+```
 
 ### Database Setup
 1. Create a MySQL database named `carfix`
