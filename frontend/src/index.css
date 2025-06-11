@@ -13,7 +13,7 @@
     @apply px-4 py-2 rounded-md font-medium transition-colors;
   }
   .btn-primary {
-    @apply bg-blue-600 text-white hover:bg-blue-700;
+    @apply bg-primary-600 text-white hover:bg-primary-700;
   }
   .card {
     @apply bg-white rounded-lg shadow-md p-4;

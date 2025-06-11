@@ -16,4 +16,6 @@ export function ProtectedRoute({ children, requireRole }) {
   }
 
   return children;
-} 
+}
+
+className="text-primary-600 hover:text-primary-700" 

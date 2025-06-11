@@ -70,12 +70,12 @@ export default function FeaturedSlider() {
                   <h2 className="text-4xl font-bold mb-4">{product.name}</h2>
                   <p className="text-lg mb-6 opacity-90">{product.description}</p>
                   <div className="flex items-center space-x-4">
-                    <span className="text-3xl font-bold text-blue-400">
+                    <span className="text-3xl font-bold text-primary-400">
                       ${product.price}
                     </span>
                     <Link
                       to={`/products/${product.id}`}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                     >
                       View Details
                     </Link>
@@ -94,7 +94,7 @@ export default function FeaturedSlider() {
             key={index}
             onClick={() => setCurrentSlide(index)}
             className={`w-3 h-3 rounded-full transition-colors ${
-              currentSlide === index ? 'bg-blue-500' : 'bg-white/50'
+              currentSlide === index ? 'bg-primary-500' : 'bg-white/50'
             }`}
             aria-label={`Go to slide ${index + 1}`}
           />
