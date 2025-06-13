@@ -21,30 +21,30 @@ export default function RegisterForm() {
     
     // Name validation
     if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = 'El nombre es requerido';
     } else if (formData.name.length < 2) {
-      newErrors.name = 'Name must be at least 2 characters';
+      newErrors.name = 'El nombre debe tener al menos 2 caracteres';
     }
 
     // Email validation
     if (!formData.email) {
-      newErrors.email = 'Email is required';
+      newErrors.email = 'El correo electrónico es requerido';
     } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
-      newErrors.email = 'Invalid email address';
+      newErrors.email = 'Dirección de correo electrónico inválida';
     }
 
     // Password validation
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = 'La contraseña es requerida';
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
 
     // Confirm password validation
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
+      newErrors.confirmPassword = 'Por favor confirma tu contraseña';
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
     setErrors(newErrors);
@@ -80,7 +80,7 @@ export default function RegisterForm() {
       await register(registerData);
       navigate('/');
     } catch (error) {
-      setServerError(error.message || 'Failed to register. Please try again.');
+      setServerError(error.message || 'Error al registrarse. Por favor, intente nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -91,15 +91,15 @@ export default function RegisterForm() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Create your account
+            Crea tu cuenta
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Already have an account?{' '}
+            ¿Ya tienes una cuenta?{' '}
             <Link
               to="/login"
               className="font-medium text-blue-600 hover:text-blue-500"
             >
-              Sign in
+              Inicia sesión
             </Link>
           </p>
         </div>
@@ -132,7 +132,7 @@ export default function RegisterForm() {
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full name
+                Nombre completo
               </label>
               <div className="mt-1">
                 <input
@@ -146,7 +146,7 @@ export default function RegisterForm() {
                   className={`appearance-none block w-full px-3 py-2 border ${
                     errors.name ? 'border-red-300' : 'border-gray-300'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm`}
-                  placeholder="Enter your full name"
+                  placeholder="Ingresa tu nombre completo"
                 />
                 {errors.name && (
                   <p className="mt-1 text-sm text-red-600">{errors.name}</p>
@@ -156,7 +156,7 @@ export default function RegisterForm() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                Correo electrónico
               </label>
               <div className="mt-1">
                 <input
@@ -170,7 +170,7 @@ export default function RegisterForm() {
                   className={`appearance-none block w-full px-3 py-2 border ${
                     errors.email ? 'border-red-300' : 'border-gray-300'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm`}
-                  placeholder="Enter your email"
+                  placeholder="Ingresa tu correo electrónico"
                 />
                 {errors.email && (
                   <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -180,7 +180,7 @@ export default function RegisterForm() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Contraseña
               </label>
               <div className="mt-1">
                 <input
@@ -194,7 +194,7 @@ export default function RegisterForm() {
                   className={`appearance-none block w-full px-3 py-2 border ${
                     errors.password ? 'border-red-300' : 'border-gray-300'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm`}
-                  placeholder="Create a password"
+                  placeholder="Crea una contraseña"
                 />
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-600">{errors.password}</p>
@@ -204,7 +204,7 @@ export default function RegisterForm() {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm password
+                Confirmar contraseña
               </label>
               <div className="mt-1">
                 <input
@@ -218,7 +218,7 @@ export default function RegisterForm() {
                   className={`appearance-none block w-full px-3 py-2 border ${
                     errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm`}
-                  placeholder="Confirm your password"
+                  placeholder="Confirma tu contraseña"
                 />
                 {errors.confirmPassword && (
                   <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
@@ -228,7 +228,7 @@ export default function RegisterForm() {
 
             <div>
               <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                Account type
+                Tipo de cuenta
               </label>
               <div className="mt-1">
                 <select
@@ -238,8 +238,8 @@ export default function RegisterForm() {
                   onChange={handleChange}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
                 >
-                  <option value="customer">Customer</option>
-                  <option value="seller">Seller</option>
+                  <option value="customer">Cliente</option>
+                  <option value="seller">Vendedor</option>
                 </select>
               </div>
             </div>
@@ -275,7 +275,7 @@ export default function RegisterForm() {
                   ></path>
                 </svg>
               ) : null}
-              {isLoading ? 'Creating account...' : 'Create account'}
+              {isLoading ? 'Registrando...' : 'Registrarse'}
             </button>
           </div>
         </form>

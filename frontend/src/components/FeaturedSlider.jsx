@@ -1,43 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-export default function FeaturedSlider() {
-  const [featuredProducts, setFeaturedProducts] = useState([]);
+export default function FeaturedSlider({ products = [] }) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchFeaturedProducts = async () => {
-      try {
-        const response = await fetch('/api/products/featured');
-        if (!response.ok) throw new Error('Failed to fetch featured products');
-        const data = await response.json();
-        setFeaturedProducts(data);
-      } catch (error) {
-        console.error('Error fetching featured products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFeaturedProducts();
-  }, []);
-
-  useEffect(() => {
+    if (products.length === 0) return;
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % featuredProducts.length);
+      setCurrentSlide((prev) => (prev + 1) % products.length);
     }, 5000);
-
     return () => clearInterval(timer);
-  }, [featuredProducts.length]);
+  }, [products.length]);
 
-  if (loading) {
-    return (
-      <div className="w-full h-96 bg-gray-100 rounded-lg animate-pulse"></div>
-    );
-  }
-
-  if (featuredProducts.length === 0) {
+  if (!products || products.length === 0) {
     return null;
   }
 
@@ -48,7 +23,7 @@ export default function FeaturedSlider() {
         className="flex transition-transform duration-500 ease-in-out h-full"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
-        {featuredProducts.map((product) => (
+        {products.map((product) => (
           <div
             key={product.id}
             className="min-w-full h-full relative"
@@ -57,7 +32,7 @@ export default function FeaturedSlider() {
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{
-                backgroundImage: `url(${product.image_url || '/placeholder.jpg'})`,
+                backgroundImage: `url(${(product.images && product.images[0] && product.images[0].imageData) ? product.images[0].imageData : '/placeholder.jpg'})`,
               }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30"></div>
@@ -77,7 +52,7 @@ export default function FeaturedSlider() {
                       to={`/products/${product.id}`}
                       className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                     >
-                      View Details
+                      Ver Detalles
                     </Link>
                   </div>
                 </div>
@@ -89,32 +64,32 @@ export default function FeaturedSlider() {
 
       {/* Navigation dots */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-        {featuredProducts.map((_, index) => (
+        {products.map((_, index) => (
           <button
             key={index}
             onClick={() => setCurrentSlide(index)}
             className={`w-3 h-3 rounded-full transition-colors ${
               currentSlide === index ? 'bg-primary-500' : 'bg-white/50'
             }`}
-            aria-label={`Go to slide ${index + 1}`}
+            aria-label={`Ir a la diapositiva ${index + 1}`}
           />
         ))}
       </div>
 
       {/* Navigation arrows */}
       <button
-        onClick={() => setCurrentSlide((prev) => (prev - 1 + featuredProducts.length) % featuredProducts.length)}
+        onClick={() => setCurrentSlide((prev) => (prev - 1 + products.length) % products.length)}
         className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
-        aria-label="Previous slide"
+        aria-label="Diapositiva anterior"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
       </button>
       <button
-        onClick={() => setCurrentSlide((prev) => (prev + 1) % featuredProducts.length)}
+        onClick={() => setCurrentSlide((prev) => (prev + 1) % products.length)}
         className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
-        aria-label="Next slide"
+        aria-label="Siguiente diapositiva"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

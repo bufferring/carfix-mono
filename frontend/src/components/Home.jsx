@@ -34,11 +34,11 @@ export default function Home() {
             <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28" data-aos="fade-up" data-aos-delay="100">
               <div className="sm:text-center lg:text-left">
                 <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                  <span className="block">Welcome to</span>
-                  <span className="block text-primary-600">CarFix Parts</span>
+                  <span className="block">Bienvenido a</span>
+                  <span className="block text-primary-600">CarFix</span>
                 </h1>
                 <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
-                  Your one-stop shop for high-quality automotive parts and accessories. Find the perfect parts for your vehicle with our extensive selection.
+                  Tu tienda de confianza para repuestos y accesorios automotrices de alta calidad. Encuentra las piezas perfectas para tu vehículo en nuestra extensa selección.
                 </p>
                 <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                   <div className="rounded-md shadow">
@@ -46,7 +46,7 @@ export default function Home() {
                       to="/products"
                       className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 md:py-4 md:text-lg md:px-10"
                     >
-                      Browse Products
+                      Ver Productos
                     </Link>
                   </div>
                   <div className="mt-3 sm:mt-0 sm:ml-3">
@@ -54,7 +54,7 @@ export default function Home() {
                       to="/register"
                       className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-primary-700 bg-primary-100 hover:bg-primary-200 md:py-4 md:text-lg md:px-10"
                     >
-                      Become a Seller
+                      Ser Vendedor
                     </Link>
                   </div>
                 </div>
@@ -68,10 +68,10 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" data-aos="fade-up" data-aos-delay="200">
         <div className="text-center">
           <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-            Featured Products
+            Productos Destacados
           </h2>
           <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-            Check out our handpicked selection of top-quality automotive parts
+            Descubre nuestra selección cuidadosamente elegida de repuestos automotrices de alta calidad
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export default function Home() {
           </div>
         ) : error ? (
           <div className="text-center text-red-600 mt-4">
-            {error}
+            {error === 'Failed to fetch featured products' ? 'Error al cargar los productos destacados' : error}
           </div>
         ) : (
           <FeaturedSlider products={featuredProducts} />
@@ -98,9 +98,9 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="mt-6 text-lg font-medium text-gray-900">Quality Guaranteed</h3>
+              <h3 className="mt-6 text-lg font-medium text-gray-900">Calidad Garantizada</h3>
               <p className="mt-2 text-base text-gray-500">
-                All our products are thoroughly tested and come with a quality guarantee
+                Todos nuestros productos son probados exhaustivamente y vienen con garantía de calidad
               </p>
             </div>
 
@@ -110,9 +110,9 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="mt-6 text-lg font-medium text-gray-900">Fast Shipping</h3>
+              <h3 className="mt-6 text-lg font-medium text-gray-900">Envío Rápido</h3>
               <p className="mt-2 text-base text-gray-500">
-                Quick delivery to your doorstep with real-time tracking
+                Entrega rápida a tu puerta con seguimiento en tiempo real
               </p>
             </div>
 
@@ -122,9 +122,9 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <h3 className="mt-6 text-lg font-medium text-gray-900">Easy Returns</h3>
+              <h3 className="mt-6 text-lg font-medium text-gray-900">Devoluciones Fáciles</h3>
               <p className="mt-2 text-base text-gray-500">
-                Hassle-free returns and exchanges within 30 days
+                Devoluciones y cambios sin complicaciones dentro de los 30 días
               </p>
             </div>
           </div>

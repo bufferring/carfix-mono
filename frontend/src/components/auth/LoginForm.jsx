@@ -19,16 +19,16 @@ export default function LoginForm() {
     
     // Email validation
     if (!formData.email) {
-      newErrors.email = 'Email is required';
+      newErrors.email = 'El correo electrónico es requerido';
     } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
-      newErrors.email = 'Invalid email address';
+      newErrors.email = 'Dirección de correo electrónico inválida';
     }
 
     // Password validation
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = 'La contraseña es requerida';
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
 
     setErrors(newErrors);
@@ -64,7 +64,7 @@ export default function LoginForm() {
       const from = location.state?.from?.pathname || '/';
       navigate(from, { replace: true });
     } catch (error) {
-      setServerError(error.message || 'Failed to login. Please try again.');
+      setServerError(error.message || 'Error al iniciar sesión. Por favor, intente nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -75,15 +75,15 @@ export default function LoginForm() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Welcome back
+            Bienvenido de nuevo
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Don't have an account?{' '}
+            ¿No tienes una cuenta?{' '}
             <Link
               to="/register"
               className="font-medium text-blue-600 hover:text-blue-500"
             >
-              Sign up
+              Regístrate
             </Link>
           </p>
         </div>
@@ -116,7 +116,7 @@ export default function LoginForm() {
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                Correo electrónico
               </label>
               <div className="mt-1 relative">
                 <input
@@ -130,7 +130,7 @@ export default function LoginForm() {
                   className={`appearance-none block w-full px-3 py-2 border ${
                     errors.email ? 'border-red-300' : 'border-gray-300'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm`}
-                  placeholder="Enter your email"
+                  placeholder="Ingresa tu correo electrónico"
                 />
                 {errors.email && (
                   <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -140,7 +140,7 @@ export default function LoginForm() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Contraseña
               </label>
               <div className="mt-1 relative">
                 <input
@@ -154,7 +154,7 @@ export default function LoginForm() {
                   className={`appearance-none block w-full px-3 py-2 border ${
                     errors.password ? 'border-red-300' : 'border-gray-300'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm`}
-                  placeholder="Enter your password"
+                  placeholder="Ingresa tu contraseña"
                 />
                 {errors.password && (
                   <p className="mt-1 text-sm text-red-600">{errors.password}</p>
@@ -172,13 +172,13 @@ export default function LoginForm() {
                 className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                Remember me
+                Recordarme
               </label>
             </div>
 
             <div className="text-sm">
               <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-                Forgot your password?
+                ¿Olvidaste tu contraseña?
               </a>
             </div>
           </div>
@@ -213,7 +213,7 @@ export default function LoginForm() {
                   ></path>
                 </svg>
               ) : null}
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </button>
           </div>
         </form>

@@ -46,18 +46,18 @@ function Nav() {
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <Link to="/" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Home</Link>
-              <Link to="/products" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Products</Link>
+              <Link to="/" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Inicio</Link>
+              <Link to="/products" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Productos</Link>
               {user?.role === 'seller' && (
                 <>
-                  <Link to="/seller/dashboard" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Dashboard</Link>
-                  <Link to="/seller/categories" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Categories</Link>
-                  <Link to="/seller/products/new" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Add Product</Link>
+                  <Link to="/seller/dashboard" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Panel de Control</Link>
+                  <Link to="/seller/categories" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Categorías</Link>
+                  <Link to="/seller/products/new" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Agregar Producto</Link>
                 </>
               )}
               {user?.role === 'customer' && (
                 <Link to="/cart" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium relative">
-                  Cart
+                  Carrito
                   {cartCount > 0 && <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-primary-600 rounded-full">{cartCount}</span>}
                 </Link>
               )}
@@ -66,19 +66,19 @@ function Nav() {
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             {user ? (
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">Welcome, {user.name}</span>
-                <button onClick={handleLogout} className="text-sm text-gray-700 hover:text-gray-900">Logout</button>
+                <span className="text-sm text-gray-700">Bienvenido, {user.name}</span>
+                <button onClick={handleLogout} className="text-sm text-gray-700 hover:text-gray-900">Cerrar Sesión</button>
               </div>
             ) : (
               <div className="flex items-center space-x-4">
-                <Link to="/login" className="text-sm text-gray-700 hover:text-gray-900">Login</Link>
-                <Link to="/register" className="text-sm text-gray-700 hover:text-gray-900">Register</Link>
+                <Link to="/login" className="text-sm text-gray-700 hover:text-gray-900">Iniciar Sesión</Link>
+                <Link to="/register" className="text-sm text-gray-700 hover:text-gray-900">Registrarse</Link>
               </div>
             )}
           </div>
           <div className="-mr-2 flex items-center sm:hidden">
             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500">
-              <span className="sr-only">Open main menu</span>
+              <span className="sr-only">Abrir menú principal</span>
               {isMenuOpen ? <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg> : <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>}
             </button>
           </div>
@@ -87,18 +87,18 @@ function Nav() {
       {isMenuOpen && (
         <div className="sm:hidden">
           <div className="pt-2 pb-3 space-y-1">
-            <Link to="/" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Home</Link>
-            <Link to="/products" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Products</Link>
+            <Link to="/" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Inicio</Link>
+            <Link to="/products" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Productos</Link>
             {user?.role === 'seller' && (
               <>
-                <Link to="/seller/dashboard" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Dashboard</Link>
-                <Link to="/seller/categories" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Categories</Link>
-                <Link to="/seller/products/new" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Add Product</Link>
+                <Link to="/seller/dashboard" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Panel de Control</Link>
+                <Link to="/seller/categories" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Categorías</Link>
+                <Link to="/seller/products/new" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Agregar Producto</Link>
               </>
             )}
             {user?.role === 'customer' && (
               <Link to="/cart" className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 relative">
-                Cart
+                Carrito
                 {cartCount > 0 && <span className="absolute top-2 right-4 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-primary-600 rounded-full">{cartCount}</span>}
               </Link>
             )}
@@ -106,13 +106,13 @@ function Nav() {
           <div className="pt-4 pb-3 border-t border-gray-200">
             {user ? (
               <div className="space-y-1">
-                <div className="block px-4 py-2 text-base font-medium text-gray-500">Welcome, {user.name}</div>
-                <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">Logout</button>
+                <div className="block px-4 py-2 text-base font-medium text-gray-500">Bienvenido, {user.name}</div>
+                <button onClick={handleLogout} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">Cerrar Sesión</button>
               </div>
             ) : (
               <div className="space-y-1">
-                <Link to="/login" className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">Login</Link>
-                <Link to="/register" className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">Register</Link>
+                <Link to="/login" className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">Iniciar Sesión</Link>
+                <Link to="/register" className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">Registrarse</Link>
               </div>
             )}
           </div>

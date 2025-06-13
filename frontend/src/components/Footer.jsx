@@ -8,7 +8,7 @@ const Footer = () => {
         {/* Centered attribution text */}
         <div className="text-center text-gray-600 w-full mb-4 md:mb-0">
           <p>
-            made with ❤️ by{' '}
+            hecho con ❤️ por{' '}
             <a
               href="https://bufferring.org"
               target="_blank"
@@ -26,7 +26,7 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-pink-500 transition-colors"
-            aria-label="Instagram"
+            aria-label="Instagram de CarFix"
           >
             <FaInstagram size={24} />
           </a>
@@ -35,7 +35,7 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-black transition-colors"
-            aria-label="TikTok"
+            aria-label="TikTok de CarFix"
           >
             <FaTiktok size={24} />
           </a>
@@ -44,7 +44,7 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-gray-900 transition-colors"
-            aria-label="GitHub"
+            aria-label="GitHub de CarFix"
           >
             <FaGithub size={24} />
           </a>
