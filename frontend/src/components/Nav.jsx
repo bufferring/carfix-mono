@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../api';
+import logo from '../img/logo.png';
 
 function Nav() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -40,7 +41,9 @@ function Nav() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-xl font-bold text-primary-600">CarFix</Link>
+              <Link to="/" className="flex items-center">
+                <img src={logo} alt="CarFix Logo" className="h-8 w-auto" />
+              </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link to="/" className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">Home</Link>

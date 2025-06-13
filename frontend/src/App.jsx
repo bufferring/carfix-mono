@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Nav from './components/Nav';
+import Footer from './components/Footer';
 import Home from './components/Home';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
@@ -20,9 +21,9 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       <Nav />
-      <main className="py-10">
+      <main className="py-10 flex-grow">
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<Home />} />
@@ -78,6 +79,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <Footer />
     </div>
   );
 }
