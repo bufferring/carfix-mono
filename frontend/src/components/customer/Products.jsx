@@ -146,7 +146,7 @@ function Products() {
             </svg>
           </div>
           <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">Error loading products</h3>
+            <h3 className="text-sm font-medium text-red-800">Error al cargar productos</h3>
             <p className="mt-1 text-sm text-red-700">{error}</p>
           </div>
         </div>
@@ -158,7 +158,7 @@ function Products() {
     <div className="flex flex-wrap flex-col items-center sm:items-start sm:ml-4 sm:flex-nowrap sm:flex-row">
       {/* Select filter Panel */}
       <div className="flex flex-col mb-4 w-[90%] sm:w-[300px]">
-        <p className="text-lg font-medium">Filter by</p>
+        <p className="text-lg font-medium">Filtrar por</p>
         {/* Featured */}
         <div className="flex items-center pl-2 pr-4 my-2">
           <input
@@ -171,12 +171,12 @@ function Products() {
             }}
             className="appearance-none focus:outline-none accent-red-500 hover:checked:bg-red-500 focus:checked:bg-red-500 focus:ring-transparent rounded-sm form-checkbox mr-2 size-4 checked:bg-red-500"
           />
-          <label htmlFor="featured" className="text-sm">Only Featured</label>
+          <label htmlFor="featured" className="text-sm">Solo Destacados</label>
         </div>
 
         {/* Categories */}
         <div className="flex flex-col mt-2 space-between mb-4 bg-white rounded-md overflow-hidden border-[2.5px] border-[#ea8080] shadow-md">
-          <p className="text-md font-medium p-2 w-full text-center text-white bg-red-500">Category</p>
+          <p className="text-md font-medium p-2 w-full text-center text-white bg-red-500">Categoría</p>
           {categories.map((category, index) => (
             <div key={index} className="flex items-center pl-2 pr-4 mt-2 mb-2">
               <input
@@ -193,7 +193,7 @@ function Products() {
 
         {/* Brand */}
         <div className="flex flex-col mt-2 flex space-between bg-white rounded-md overflow-hidden border-[2.5px] border-[#ea8080] shadow-md w-full">
-          <p className="text-md font-medium p-2 w-full text-center text-white bg-red-500">Brand</p>
+          <p className="text-md font-medium p-2 w-full text-center text-white bg-red-500">Marca</p>
           {brands.map((category, index) => (
             <div key={index} className="flex items-center pl-2 pr-4 mt-2 mb-2">
               <input
@@ -212,9 +212,9 @@ function Products() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Search bar */}
         <div className="flex flex-col w-full items-center mb-10">
-          <h1 className="text-4xl text-gray-900 text-center font-medium mb-4">Find the spare part you are looking for</h1>
+          <h1 className="text-4xl text-gray-900 text-center font-medium mb-4">Encuentra el repuesto que buscas</h1>
           <div className="flex gap-2 w-[80%] bg-white rounded-full overflow-hidden shadow-sm border-[2.5px] transition duration-5000 ease-in-out border-gray-300 hover:border-red-400 hover:shadow-red-400">
-            <input placeholder="Search products..." ref={searchInputRef} onChange={handleSearchChange} type="text" className="w-full border-transparent focus:border-transparent focus:outline-none focus:ring-transparent" />
+            <input placeholder="Buscar productos..." ref={searchInputRef} onChange={handleSearchChange} type="text" className="w-full border-transparent focus:border-transparent focus:outline-none focus:ring-transparent" />
           </div>
         </div>
 
@@ -264,7 +264,7 @@ function Products() {
                 {product.featured && (
                   <div className="absolute top-2 right-2">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      Featured
+                      Destacado
                     </span>
                   </div>
                 )}
@@ -282,14 +282,14 @@ function Products() {
                       className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition"
                       onClick={() => navigate(`/cart?add=${product.id}`)}
                     >
-                      Shop
+                      Comprar
                     </button>
                   ) : (
                     <button
                       className="w-full rounded-md bg-gray-200 text-gray-600 px-3 py-2 text-sm font-medium cursor-not-allowed opacity-50"
                       disabled
                     >
-                      Out of Stock
+                      Sin Stock
                     </button>
                   )}
                 </div>
