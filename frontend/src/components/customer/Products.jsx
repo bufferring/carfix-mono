@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api'; 
 
@@ -23,7 +24,10 @@ function Products() {
 
   const [filteredProducts, setFilteredProducts] = useState([]);
 
+  const [toast, setToast] = useState({ type: '', message: '', visible: false });
+
   const { user } = useAuth();
+  const { addToCart } = useCart();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -105,26 +109,11 @@ function Products() {
     if (!loading) handleCheckbox();
   }, [loading]);
 
-  const handleAddToCart = async (productId) => {
-    setAddingToCart(productId);
-    try {
-      const response = await apiClient.post('/api/cart', {
-          product_id: productId,
-          quantity: 1
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to add to cart');
-      }
-
-      // Show success message or update cart count
-      // TODO: Add toast notification
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setAddingToCart(null);
-    }
+  const showToast = (type, message) => {
+    setToast({ type, message, visible: true });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, visible: false }));
+    }, 3000);
   };
 
   // Defensive helper to avoid rendering 0, null, undefined, or empty string
@@ -156,6 +145,24 @@ function Products() {
 
   return (
     <div className="flex flex-wrap flex-col items-center sm:items-start sm:ml-4 sm:flex-nowrap sm:flex-row">
+      {/* Toast Notification */}
+      {toast.visible && (
+        <div className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg z-50 ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
+          <div className="flex items-center">
+            {toast.type === 'success' ? (
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            <p>{toast.message}</p>
+          </div>
+        </div>
+      )}
+      
       {/* Select filter Panel */}
       <div className="flex flex-col mb-4 w-[90%] sm:w-[300px]">
         <p className="text-lg font-medium">Filtrar por</p>
@@ -239,7 +246,7 @@ function Products() {
                         />
                       ) : (idx === 0) ? (
                         <div key={idx} className="w-full h-full flex items-center justify-center bg-gray-200">
-                          <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="h-12 w-12 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </div>
@@ -280,9 +287,24 @@ function Products() {
                   {product.stock > 0 ? (
                     <button
                       className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition"
-                      onClick={() => navigate(`/cart?add=${product.id}`)}
+                      onClick={() => {
+                        setAddingToCart(product.id);
+                        addToCart(product.id, 1)
+                          .then(() => showToast('success', 'Item added to cart'))
+                          .catch(err => showToast('error', err.message || 'Failed to add to cart'))
+                          .finally(() => setAddingToCart(null));
+                      }}
+                      disabled={addingToCart === product.id}
                     >
-                      Comprar
+                      {addingToCart === product.id ? (
+                        <span className="flex justify-center">
+                          <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Adding...
+                        </span>
+                      ) : 'Comprar'}
                     </button>
                   ) : (
                     <button
@@ -302,4 +324,4 @@ function Products() {
   );
 }
 
-export default Products; 
+export default Products;

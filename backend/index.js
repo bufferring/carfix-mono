@@ -258,7 +258,12 @@ app.get('/api/cart', auth, async (req, res) => {
   try {
     const conn = await getConnection();
     const [rows] = await conn.execute(`
-      SELECT c.id, p.name AS product, c.quantity, p.price
+      SELECT c.id, p.id AS product_id, p.name AS product_name, 
+             p.price, c.quantity, p.stock,
+             (SELECT pi.image_url FROM product_images pi 
+              WHERE pi.product_id = p.id 
+              ORDER BY pi.is_primary DESC 
+              LIMIT 1) AS image_url
       FROM cart c
       JOIN products p ON c.product_id = p.id
       WHERE c.user_id = ?
@@ -799,50 +804,43 @@ app.post('/api/cart', auth, async (req, res) => {
 
 // PUT /cart/:id (protected, customer only)
 app.put('/api/cart/:id', auth, async (req, res) => {
-  // Check if user is a customer
-  if (req.user.role !== 'customer') {
-    return res.status(403).json({ error: 'Only customers can update cart' });
+  const { quantity } = req.body;
+  if (quantity === undefined || quantity < 1) {
+    return res.status(400).json({ error: 'Invalid quantity' });
   }
 
   try {
-    const { id } = req.params;
-    const { quantity } = req.body;
     const conn = await getConnection();
-
-    // Verify cart item belongs to user
-    const [cartItems] = await conn.execute(
-      'SELECT c.*, p.stock FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ? AND c.user_id = ?',
-      [id, req.user.id]
+    // First, get the cart item and the product stock
+    const [cartItem] = await conn.execute(
+      `SELECT c.*, p.stock 
+       FROM cart c 
+       JOIN products p ON c.product_id = p.id 
+       WHERE c.id = ? AND c.user_id = ?`,
+      [req.params.id, req.user.id]
     );
 
-    if (cartItems.length === 0) {
+    if (cartItem.length === 0) {
       await conn.end();
-      return res.status(404).json({ error: 'Cart item not found or unauthorized' });
+      return res.status(404).json({ error: 'Cart item not found' });
     }
 
-    const cartItem = cartItems[0];
-    if (cartItem.stock < quantity) {
+    // Check if the requested quantity exceeds available stock
+    if (cartItem[0].stock < quantity) {
       await conn.end();
-      return res.status(400).json({ error: 'Not enough stock available' });
+      return res.status(400).json({ 
+        error: `Only ${cartItem[0].stock} items available in stock` 
+      });
     }
 
-    // Update quantity
+    // Update the cart item
     await conn.execute(
       'UPDATE cart SET quantity = ? WHERE id = ?',
-      [quantity, id]
+      [quantity, req.params.id]
     );
-
-    // Get updated cart
-    const [updatedCart] = await conn.execute(`
-      SELECT c.id, p.name AS product, c.quantity, p.price
-      FROM cart c
-      JOIN products p ON c.product_id = p.id
-      WHERE c.user_id = ?
-      ORDER BY c.id
-    `, [req.user.id]);
-
     await conn.end();
-    res.json(updatedCart);
+
+    res.json({ message: 'Cart item updated' });
   } catch (err) {
     console.error('Error updating cart:', err);
     res.status(500).json({ error: 'Server error' });

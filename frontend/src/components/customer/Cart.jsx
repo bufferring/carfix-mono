@@ -1,48 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import apiClient from '../../api';
+import { Link } from 'react-router-dom';
 
 function Cart() {
-  const [cartItems, setCartItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(null);
+  const [error, setError] = useState(null);
   const { user } = useAuth();
+  const { cartItems, loading, fetchCart } = useCart();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-
-    const fetchCart = async () => {
-      try {
-        const response = await apiClient.get('/api/cart');
-        setCartItems(response.data);
-      } catch (err) {
-        setError(err.response?.data?.error || err.message || 'Failed to load cart');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCart();
-  }, [user, navigate]);
 
   const handleUpdateQuantity = async (itemId, newQuantity) => {
     if (newQuantity < 1) return;
 
     setUpdating(itemId);
     try {
-      const response = await apiClient.put(`/api/cart/${itemId}`, { quantity: newQuantity });
-      const updatedItem = response.data;
-      setCartItems(items =>
-        items.map(item =>
-          item.id === itemId ? { ...item, quantity: updatedItem.quantity, price: updatedItem.price } : item
-        )
-      );
+      await apiClient.put(`/api/cart/${itemId}`, { quantity: newQuantity });
+      fetchCart(); // Refresh cart from context
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to update quantity');
     } finally {
@@ -54,7 +30,7 @@ function Cart() {
     setUpdating(itemId);
     try {
       await apiClient.delete(`/api/cart/${itemId}`);
-      setCartItems(items => items.filter(item => item.id !== itemId));
+      fetchCart(); // Refresh cart from context
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to remove item');
     } finally {
@@ -102,16 +78,21 @@ function Cart() {
   if (cartItems.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">Your cart is empty</h3>
-          <p className="mt-1 text-sm text-gray-500">Start shopping to add items to your cart.</p>
-          <div className="mt-6">
-            <button onClick={() => navigate('/products')} className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-              Browse Products
-            </button>
+        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+          <div className="px-4 py-5 sm:px-6">
+            <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
+          </div>
+          <div className="px-4 py-10 sm:px-6 flex flex-col items-center justify-center">
+            <svg className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            <p className="mt-2 text-lg font-medium text-gray-500">Your cart is empty</p>
+            <p className="mt-1 text-sm text-gray-500">Add some items to get started</p>
+            <div className="mt-6">
+              <Link to="/products" className="inline-flex items-center px-5 py-2 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                Shop Now
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -120,76 +101,93 @@ function Cart() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-8">Shopping Cart</h1>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <ul className="divide-y divide-gray-200">
-              {cartItems.map((item) => (
-                <li key={item.id} className="p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 w-24 h-24 bg-gray-200 rounded-md overflow-hidden">
-                      <div className="w-full h-full flex items-center justify-center">
-                        <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="ml-6 flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
-                        <p className="ml-4 text-lg font-medium text-gray-900">${item.price}</p>
-                      </div>
-                      <p className="mt-1 text-sm text-gray-500">{item.brand}</p>
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="flex items-center">
-                          <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} disabled={updating === item.id} className="p-1 rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <span className="sr-only">Decrease quantity</span>
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
-                          </button>
-                          <span className="mx-2 text-gray-700">{item.quantity}</span>
-                          <button onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} disabled={updating === item.id} className="p-1 rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <span className="sr-only">Increase quantity</span>
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                          </button>
-                        </div>
-                        <button onClick={() => handleRemoveItem(item.id)} disabled={updating === item.id} className="text-sm font-medium text-red-600 hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-500">
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6">
+          <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
         </div>
-        <div className="lg:col-span-1">
-          <div className="bg-white shadow sm:rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h2 className="text-lg font-medium text-gray-900">Order Summary</h2>
-              <div className="mt-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600">Subtotal</p>
-                  <p className="text-sm font-medium text-gray-900">${subtotal.toFixed(2)}</p>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600">Shipping</p>
-                  <p className="text-sm font-medium text-gray-900">Calculated at checkout</p>
-                </div>
-                <div className="border-t border-gray-200 pt-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-base font-medium text-gray-900">Total</p>
-                    <p className="text-base font-medium text-gray-900">${subtotal.toFixed(2)}</p>
+        <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+          <ul className="divide-y divide-gray-200">
+            {cartItems.map((item) => (
+              <li key={item.id} className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 w-24 h-24 bg-gray-200 rounded-md overflow-hidden">
+                    {item.image_url ? (
+                      <img 
+                        src={item.image_url} 
+                        alt={item.product_name} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <svg className="w-full h-full text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M24 20.993V24H0v-2.996l14.873-14.874 3.752 3.752L24 20.993zM5.805 12.6l-1.4-1.4 3.507-3.507 1.4 1.4-3.507 3.507zM20.896 7.2l-1.4 1.4-3.507-3.507 1.4-1.4 3.507 3.507z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="ml-4 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900">
+                        {item.product_name || `Product ${item.product_id}`}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {item.description || 'Description unavailable'}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        In Stock: {item.stock}
+                      </p>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-500">Qty:</span>
+                        <select
+                          className="ml-2 block rounded-md border-gray-300 text-sm text-gray-700 focus:border-blue-500 focus:ring-blue-500"
+                          value={item.quantity}
+                          disabled={updating === item.id}
+                          onChange={(e) => handleUpdateQuantity(item.id, parseInt(e.target.value))}
+                        >
+                          {[1, 2, 3, 4, 5].map(num => (
+                            <option key={num} value={num}>{num}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className="text-lg font-medium text-gray-900">${(item.price * item.quantity).toFixed(2)}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="mt-6">
-                <button onClick={handleCheckout} className="w-full flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                  Proceed to Checkout
-                </button>
-              </div>
-            </div>
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    disabled={updating === item.id}
+                    onClick={() => handleRemoveItem(item.id)}
+                    className="inline-flex items-center px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    <svg className="-ml-0.5 mr-2 h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="px-4 py-5 sm:px-6 border-t border-gray-200">
+          <div className="flex justify-between text-lg font-medium text-gray-900">
+            <span>Subtotal</span>
+            <span>${subtotal.toFixed(2)}</span>
+          </div>
+          <p className="mt-1 text-sm text-gray-500">Shipping and taxes calculated at checkout</p>
+          <div className="mt-6">
+            <button
+              onClick={handleCheckout}
+              className="w-full bg-blue-600 border border-transparent rounded-md shadow-sm py-3 px-4 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Checkout
+            </button>
+          </div>
+          <div className="mt-6 flex justify-center text-sm text-gray-500">
+            <p>
+              or <Link to="/products" className="text-blue-600 font-medium hover:text-blue-500">Continue Shopping<span aria-hidden="true"> &rarr;</span></Link>
+            </p>
           </div>
         </div>
       </div>

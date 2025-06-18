@@ -23,8 +23,9 @@ function Nav() {
       };
 
       fetchCartCount();
-      const interval = setInterval(fetchCartCount, 30000);
-      return () => clearInterval(interval);
+      const intervalId = setInterval(fetchCartCount, 5000);
+      
+      return () => clearInterval(intervalId);
     } else {
       setCartCount(0);
     }
