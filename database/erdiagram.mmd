@@ -1,0 +1,109 @@
+erDiagram
+    users {
+        int id
+        string name
+        string email
+        string password
+        enum role
+        string phone
+        text address
+        string business_name
+        boolean is_verified
+    }
+    
+    categories {
+        int id
+        string name
+        string image_url
+        int parent_id
+        boolean is_featured
+    }
+    
+    brands {
+        int id
+        string name
+        string logo_url
+        boolean is_featured
+    }
+    
+    products {
+        int id
+        string name
+        decimal price
+        int stock
+        int category_id
+        int brand_id
+        int seller_id
+        enum part_condition
+    }
+    
+    product_images {
+        int id
+        int product_id
+        string image_url
+        boolean is_primary
+    }
+    
+    orders {
+        int id
+        int user_id
+        decimal total_amount
+        enum status
+        text shipping_address
+        enum payment_status
+    }
+    
+    order_items {
+        int id
+        int order_id
+        int product_id
+        int quantity
+        decimal price
+    }
+    
+    reviews {
+        int id
+        int product_id
+        int user_id
+        int order_id
+        int rating
+        boolean is_verified
+    }
+    
+    cart {
+        int id
+        int user_id
+        int product_id
+        int quantity
+    }
+    
+    wishlist {
+        int id
+        int user_id
+        int product_id
+    }
+    
+    notifications {
+        int id
+        int user_id
+        string title
+        text message
+        enum type
+    }
+
+    categories ||--o{ categories : "parent"
+    categories ||--o{ products : "category"
+    brands ||--o{ products : "brand"
+    users ||--o{ products : "seller"
+    products ||--o{ product_images : "images"
+    users ||--o{ orders : "placed"
+    orders ||--o{ order_items : "contains"
+    products ||--o{ order_items : "ordered"
+    products ||--o{ reviews : "reviewed"
+    users ||--o{ reviews : "wrote"
+    orders ||--o{ reviews : "for"
+    users ||--o{ cart : "in"
+    products ||--o{ cart : "added"
+    users ||--o{ wishlist : "saved"
+    products ||--o{ wishlist : "in"
+    users ||--o{ notifications : "receives"
