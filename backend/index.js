@@ -175,6 +175,72 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// GET /products/:id (public)
+app.get('/api/products/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const conn = await getConnection();
+    const [rows] = await conn.execute(`
+      SELECT 
+        p.id, p.name, p.description, p.price, p.stock, p.featured, 
+        c.name AS category, 
+        b.name AS brand, 
+        u.name AS seller, 
+        GROUP_CONCAT(pi.image_url) AS images
+      FROM products p
+      JOIN categories c ON p.category_id = c.id
+      JOIN brands b ON p.brand_id = b.id
+      JOIN users u ON p.seller_id = u.id
+      LEFT JOIN product_images pi ON p.id = pi.product_id
+      WHERE p.id = ? AND p.is_active = true AND p.is_deleted = false
+      GROUP BY p.id
+    `, [id]);
+
+    await conn.end();
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Product not found or not available' });
+    }
+
+    const product = rows[0];
+
+    let images = [];
+    if (product.images) {
+       images = product.images.split(',').map(url => {
+          let imageData = null;
+          if (url && url.startsWith('/uploads/')) {
+             const filePath = path.join(uploadsDir, url.replace(/^\/uploads\//, ''));
+             try {
+                const data = fs.readFileSync(filePath);
+                const ext = path.extname(filePath).toLowerCase();
+                let mime = "image/png"; // Default
+                switch (ext) {
+                   case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
+                   case ".gif": mime = "image/gif"; break;
+                }
+                imageData = "data:" + mime + ";base64," + data.toString("base64");
+             } catch (err) {
+
+                console.error("Error reading file for product " + product.id + ":", err);
+             }
+          } else if (url) {
+             imageData = req.protocol + '://' + req.get('host') + url;
+          }
+          return { imageData };
+       });
+    }
+    
+    product.images = images;
+    
+    res.json(product);
+
+  } catch (err) {
+    console.error(`Error fetching product with id ${id}:`, err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /orders (protected, only customer's own orders or all orders for admin)
 app.get('/api/orders', auth, async (req, res) => {
   try {
