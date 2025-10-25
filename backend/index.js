@@ -2,1021 +2,679 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const mysql = require('mysql2/promise');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { auth, generateToken } = require('./middleware/auth');
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth-supabase');
 const { productValidation } = require('./middleware/validators');
-const jwt = require('jsonwebtoken');
+const { supabase } = require('./config/db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet()); // Security headers
-app.use(cors()); // Enable CORS
-app.use(express.json()); // Parse JSON bodies
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
 
-// Create uploads directory if it doesn't exist
+// Create uploads directory
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure multer for file uploads
+// Configure multer
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG and GIF are allowed.'), false);
-  }
-};
-
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
+  storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    cb(null, allowedTypes.includes(file.mimetype));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+// Serve uploads
+app.use('/uploads', express.static(uploadsDir));
+
+// Helper to read image as base64
+const getImageData = (imageUrl) => {
+  if (!imageUrl || !imageUrl.startsWith('/uploads/')) return null;
+  try {
+    const filePath = path.join(uploadsDir, imageUrl.replace('/uploads/', ''));
+    const data = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif' };
+    const mime = mimeTypes[ext] || 'image/png';
+    return `data:${mime};base64,${data.toString('base64')}`;
+  } catch (err) {
+    console.error('Error reading image:', err);
+    return null;
   }
-});
-
-// Serve uploaded files (images) via a custom middleware (business-level solution) so that images are always served (and CORS allowed) regardless of deployment.
-app.use('/uploads', (req, res, next) => {
-  // (Optional) restrict to your frontend origin in production, e.g. res.header('Access-Control-Allow-Origin', 'https://myfrontend.com');
-  res.header('Access-Control-Allow-Origin', '*');
-  // (Optional) if you want to prepend a dynamic base URL (e.g. for deployed environments) to image URLs, you can do so here.
-  // (In our case, the backend already prepends req.protocol + '://' + req.get('host') in the API endpoints, so this middleware is not strictly needed.)
-  // (If you do not need dynamic base URL prepending, you can remove this middleware.)
-  const baseUrl = req.protocol + '://' + req.get('host');
-  req.baseUrl = baseUrl; // (or use res.locals, etc.)
-  next();
-}, (req, res, next) => {
-  // (Custom middleware) read the file from disk (uploadsDir) and stream it (with CORS headers) so that images are always served (and CORS allowed) regardless of deployment.
-  const filePath = path.join(uploadsDir, req.url.replace(/^\/uploads\//, ''));
-  fs.stat(filePath, (err, stat) => {
-    if (err) {
-      console.error("Error stat'ing file:", err);
-      return res.status(404).send("File not found");
-    }
-    const stream = fs.createReadStream(filePath);
-    stream.on("error", (err) => {
-      console.error("Error streaming file:", err);
-      res.status(500).send("Internal Server Error");
-    });
-    res.setHeader("Content-Type", (() => {
-      const ext = path.extname(filePath).toLowerCase();
-      switch (ext) {
-        case ".png": return "image/png";
-        case ".jpg": case ".jpeg": return "image/jpeg";
-        case ".gif": return "image/gif";
-        default: return "application/octet-stream";
-      }
-    })());
-    res.setHeader("Content-Length", stat.size);
-    stream.pipe(res);
-  });
-});
-
-// Database configuration
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || 'r00tr00t',
-  database: process.env.DB_NAME || 'carfix'
 };
-
-// Helper to get a connection
-async function getConnection() {
-  return await mysql.createConnection(dbConfig);
-}
 
 // Routes
 app.use('/api/auth', authRoutes);
 
-// Protected routes
-// GET /users
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// Users
 app.get('/api/users', auth, async (req, res) => {
   try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(
-      'SELECT id, name, email, role, is_verified, is_active FROM users ORDER BY id'
-    );
-    await conn.end();
-    res.json(rows);
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, is_verified, is_active')
+      .order('id');
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    console.error('Error fetching users:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /products
+// Products
 app.get('/api/products', async (req, res) => {
   try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(`
-      SELECT p.id, p.name, p.price, p.stock, p.featured, c.name AS category, b.name AS brand, u.name AS seller, GROUP_CONCAT(pi.image_url) AS images
-      FROM products p
-      JOIN categories c ON p.category_id = c.id
-      JOIN brands b ON p.brand_id = b.id
-      JOIN users u ON p.seller_id = u.id
-      LEFT JOIN product_images pi ON p.id = pi.product_id
-      WHERE p.is_active = true AND p.is_deleted = false
-      GROUP BY p.id, p.name, p.price, p.stock, p.featured, c.name, b.name, u.name
-      ORDER BY p.featured DESC, p.id
-    `);
-    await conn.end();
-    const products = rows.map(product => {
-      let images = [];
-      if (product.images) {
-         images = product.images.split(',').map(url => {
-            let imageData = null;
-            if (url && url.startsWith('/uploads/')) {
-               const filePath = path.join(uploadsDir, url.replace(/^\/uploads\//, ''));
-               try {
-                  const data = fs.readFileSync(filePath);
-                  const ext = path.extname(filePath).toLowerCase();
-                  let mime = "image/png";
-                  switch (ext) {
-                     case ".png": mime = "image/png"; break;
-                     case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
-                     case ".gif": mime = "image/gif"; break;
-                  }
-                  imageData = "data:" + mime + ";base64," + data.toString("base64");
-               } catch (err) {
-                  console.error("Error reading file (inline) (for product " + product.id + "):", err);
-               }
-            } else if (url) {
-               imageData = req.protocol + '://' + req.get('host') + url;
-            }
-            return { imageData };
-         });
-      }
-      delete product.images; // remove the raw GROUP_CONCAT field
-      product.images = images;
-      return product;
-    });
-    res.json(products);
+    const { data: products, error } = await supabase
+      .from('products')
+      .select(`*, categories(name), brands(name), users(name)`)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .order('featured', { ascending: false })
+      .order('id');
+    
+    if (error) throw error;
+
+    const productsWithImages = await Promise.all(products.map(async (p) => {
+      const { data: images } = await supabase
+        .from('product_images')
+        .select('image_url')
+        .eq('product_id', p.id);
+      
+      return {
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        stock: p.stock,
+        featured: p.featured,
+        category: p.categories?.name || '',
+        brand: p.brands?.name || '',
+        seller: p.users?.name || '',
+        images: images?.map(img => ({ imageData: getImageData(img.image_url) })) || []
+      };
+    }));
+
+    res.json(productsWithImages);
   } catch (err) {
-    console.error('Error fetching products:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /orders (protected, only customer's own orders or all orders for admin)
+// Orders
 app.get('/api/orders', auth, async (req, res) => {
   try {
-    const conn = await getConnection();
-    let query = `
-      SELECT o.id, u.name AS customer, o.total_amount, o.status, o.payment_status
-      FROM orders o
-      JOIN users u ON o.user_id = u.id
-    `;
+    let query = supabase
+      .from('orders')
+      .select('id, total_amount, status, payment_status, users(name)');
     
-    // If not admin, only show user's own orders
     if (req.user.role !== 'admin') {
-      query += ' WHERE o.user_id = ?';
+      query = query.eq('user_id', req.user.id);
     }
     
-    query += ' ORDER BY o.id';
+    const { data, error } = await query.order('id');
+    if (error) throw error;
     
-    const [rows] = await conn.execute(
-      query,
-      req.user.role !== 'admin' ? [req.user.id] : []
-    );
-    await conn.end();
-    res.json(rows);
+    res.json(data.map(o => ({ ...o, customer: o.users?.name || '' })));
   } catch (err) {
-    console.error('Error fetching orders:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /categories
+// Categories
 app.get('/api/categories', async (req, res) => {
   try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(
-      'SELECT id, name, description, is_featured, is_active FROM categories WHERE is_deleted = false ORDER BY name'
-    );
-    await conn.end();
-    res.json(rows);
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name, description, is_featured, is_active')
+      .eq('is_deleted', false)
+      .order('name');
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    console.error('Error fetching categories:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /brands
+app.post('/api/categories', auth, async (req, res) => {
+  if (req.user.role !== 'seller') return res.status(403).json({ error: 'Forbidden' });
+  const { name, description, is_featured } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name required' });
+  
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .insert([{ name, description, is_featured: is_featured || false }])
+      .select()
+      .single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.put('/api/categories/:id', auth, async (req, res) => {
+  if (req.user.role !== 'seller') return res.status(403).json({ error: 'Forbidden' });
+  const { name, description, is_featured, is_active } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name required' });
+  
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .update({ name, description, is_featured, is_active })
+      .eq('id', req.params.id)
+      .eq('is_deleted', false)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/categories/:id', auth, async (req, res) => {
+  if (req.user.role !== 'seller') return res.status(403).json({ error: 'Forbidden' });
+  
+  try {
+    const { count } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('category_id', req.params.id)
+      .eq('is_deleted', false);
+    
+    if (count > 0) return res.status(400).json({ error: 'Category has products' });
+    
+    const { error } = await supabase
+      .from('categories')
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+      .eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Brands
 app.get('/api/brands', async (req, res) => {
   try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(
-      'SELECT id, name, description, is_featured, is_active FROM brands ORDER BY id'
-    );
-    await conn.end();
-    res.json(rows);
+    const { data, error } = await supabase
+      .from('brands')
+      .select('id, name, description, is_featured, is_active')
+      .order('id');
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    console.error('Error fetching brands:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /reviews
+// Reviews
 app.get('/api/reviews', async (req, res) => {
   try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(`
-      SELECT r.id, p.name AS product, u.name AS reviewer, r.rating, r.title, r.comment, r.is_verified, r.is_approved
-      FROM reviews r
-      JOIN products p ON r.product_id = p.id
-      JOIN users u ON r.user_id = u.id
-      ORDER BY r.id
-    `);
-    await conn.end();
-    res.json(rows);
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('id, rating, title, comment, is_verified, is_approved, products(name), users(name)')
+      .order('id');
+    if (error) throw error;
+    res.json(data.map(r => ({
+      ...r,
+      product: r.products?.name || '',
+      reviewer: r.users?.name || ''
+    })));
   } catch (err) {
-    console.error('Error fetching reviews:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// GET /cart (protected, only user's own cart)
+// Cart
 app.get('/api/cart', auth, async (req, res) => {
   try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(`
-      SELECT c.id, p.id AS product_id, p.name AS product_name, 
-             p.price, c.quantity, p.stock,
-             (SELECT pi.image_url FROM product_images pi 
-              WHERE pi.product_id = p.id 
-              ORDER BY pi.is_primary DESC 
-              LIMIT 1) AS image_url
-      FROM cart c
-      JOIN products p ON c.product_id = p.id
-      WHERE c.user_id = ?
-      ORDER BY c.id
-    `, [req.user.id]);
-    await conn.end();
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching cart:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /wishlist (protected, only user's own wishlist)
-app.get('/api/wishlist', auth, async (req, res) => {
-  try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(`
-      SELECT w.id, p.name AS product, p.price
-      FROM wishlist w
-      JOIN products p ON w.product_id = p.id
-      WHERE w.user_id = ?
-      ORDER BY w.id
-    `, [req.user.id]);
-    await conn.end();
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching wishlist:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /notifications (protected, only user's own notifications)
-app.get('/api/notifications', auth, async (req, res) => {
-  try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(`
-      SELECT id, title, message, type, is_read, created_at
-      FROM notifications
-      WHERE user_id = ?
-      ORDER BY created_at DESC
-    `, [req.user.id]);
-    await conn.end();
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching notifications:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /seller/products (protected, seller only)
-app.get('/api/seller/products', auth, async (req, res) => {
-  if (req.user.role !== 'seller') {
-    return res.status(403).json({ error: 'Only sellers can access their products' });
-  }
-  try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(`
-      SELECT 
-        p.id, p.name, p.description, p.price, p.stock, p.featured,
-        p.is_active, p.created_at, p.updated_at,
-        p.category_id, p.brand_id,
-        c.name AS category, b.name AS brand,
-        (SELECT COUNT(*) FROM orders o JOIN order_items oi ON o.id = oi.order_id WHERE oi.product_id = p.id) as total_orders,
-        (SELECT SUM(oi.quantity) FROM orders o JOIN order_items oi ON o.id = oi.order_id WHERE oi.product_id = p.id) as total_sold,
-        (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) AS image_url
-      FROM products p
-      JOIN categories c ON p.category_id = c.id
-      JOIN brands b ON p.brand_id = b.id
-      WHERE p.seller_id = ? AND p.is_deleted = false
-      ORDER BY p.created_at DESC
-    `, [req.user.id]);
-    await conn.end();
-    rows.forEach(product => {
-      // Ensure IDs are strings
-      product.category_id = product.category_id?.toString() || '';
-      product.brand_id = product.brand_id?.toString() || '';
-      // Fix image URLs
-      if (product.image_url) {
-        if (product.image_url.startsWith('/uploads/')) {
-          const filePath = path.join(uploadsDir, product.image_url.replace(/^\/uploads\//, ''));
-          try {
-            const data = fs.readFileSync(filePath);
-            const ext = path.extname(filePath).toLowerCase();
-            let mime = "image/png"; // (or "application/octet-stream" if ext is unknown)
-            switch (ext) {
-              case ".png": mime = "image/png"; break;
-              case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
-              case ".gif": mime = "image/gif"; break;
-            }
-            product.imageData = "data:" + mime + ";base64," + data.toString("base64");
-          } catch (err) {
-            console.error("Error reading file (inline) (for product " + product.id + "):", err);
-            product.imageData = null;
-          }
-        } else {
-          product.imageData = req.protocol + '://' + req.get('host') + product.image_url;
-        }
-      } else {
-        product.imageData = null;
-      }
-    });
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching seller products:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// GET /api/seller/products/:id (protected, seller only)
-app.get('/api/seller/products/:id', auth, async (req, res) => {
-  if (req.user.role !== 'seller') {
-    return res.status(403).json({ error: 'Only sellers can access their products' });
-  }
-  const { id } = req.params;
-  const conn = await getConnection();
-  try {
-    const [rows] = await conn.execute(`
-      SELECT p.*, p.category_id, p.brand_id, c.name AS category_name, b.name AS brand_name, GROUP_CONCAT(pi.id, ':', pi.image_url, ':', pi.is_primary) AS images
-      FROM products p
-      LEFT JOIN product_images pi ON p.id = pi.product_id
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN brands b ON p.brand_id = b.id
-      WHERE p.id = ? AND p.seller_id = ? AND p.is_deleted = false
-      GROUP BY p.id
-    `, [id, req.user.id]);
-    if (rows.length === 0) {
-      await conn.end();
-      return res.status(404).json({ error: 'Product not found or unauthorized' });
-    }
-    const product = rows[0];
-    // Ensure IDs are strings
-    product.category_id = product.category_id?.toString() || '';
-    product.brand_id = product.brand_id?.toString() || '';
-    // Fix image URLs
-    if (product.images) {
-      product.images = product.images.split(',').map(img => {
-        const [id, url, is_primary] = img.split(':');
-        let imageData = null;
-        if (url && url.startsWith('/uploads/')) {
-          const filePath = path.join(uploadsDir, url.replace(/^\/uploads\//, ''));
-          try {
-            const data = fs.readFileSync(filePath);
-            const ext = path.extname(filePath).toLowerCase();
-            let mime = "image/png";
-            switch (ext) {
-              case ".png": mime = "image/png"; break;
-              case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
-              case ".gif": mime = "image/gif"; break;
-            }
-            imageData = "data:" + mime + ";base64," + data.toString("base64");
-          } catch (err) {
-            console.error("Error reading file (inline) (for image " + id + "):", err);
-          }
-        }
-        return { id: parseInt(id), imageData, is_primary: is_primary === '1' };
-      });
-    } else {
-      product.images = [];
-    }
-    await conn.end();
-    res.json(product);
-  } catch (err) {
-    console.error('Error fetching seller product:', err);
-    await conn.end();
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// PUT /seller/products/:id (protected, seller only)
-app.put('/api/seller/products/:id', auth, upload.array('images', 5), productValidation, async (req, res) => {
-  // Check if user is a seller
-  if (req.user.role !== 'seller') {
-    return res.status(403).json({ error: 'Only sellers can update products' });
-  }
-
-  const connection = await getConnection();
-  await connection.beginTransaction();
-
-  try {
-    const { id } = req.params;
-    const { name, description, price, category_id, brand_id, stock, featured, is_active, delete_images } = req.body;
-
-    // Verify product belongs to seller
-    const [products] = await connection.execute(
-      'SELECT id FROM products WHERE id = ? AND seller_id = ? AND is_deleted = false',
-      [id, req.user.id]
-    );
-
-    if (products.length === 0) {
-      await connection.rollback();
-      await connection.end();
-      return res.status(404).json({ error: 'Product not found or unauthorized' });
-    }
-
-    // Update product
-    await connection.execute(`
-      UPDATE products 
-      SET name = ?, 
-          description = ?, 
-          price = ?, 
-          category_id = ?, 
-          brand_id = ?, 
-          stock = ?, 
-          featured = ?,
-          is_active = ?,
-          updated_at = NOW()
-      WHERE id = ? AND seller_id = ?
-    `, [
-      name,
-      description,
-      parseFloat(price),
-      parseInt(category_id),
-      parseInt(brand_id),
-      parseInt(stock),
-      featured === '1' ? 1 : 0,
-      is_active === '1' ? 1 : 0,
-      id,
-      req.user.id
-    ]);
-
-    // Handle image deletions if specified
-    if (delete_images) {
-      const imageIds = JSON.parse(delete_images);
-      if (Array.isArray(imageIds) && imageIds.length > 0) {
-        // Build placeholders for the IN clause
-        const placeholders = imageIds.map(() => '?').join(',');
-        // Get image URLs before deletion for cleanup
-        const [imagesToDelete] = await connection.execute(
-          `SELECT image_url FROM product_images WHERE id IN (${placeholders}) AND product_id = ?`,
-          [...imageIds, id]
-        );
-        // Delete images from database
-        await connection.execute(
-          `DELETE FROM product_images WHERE id IN (${placeholders}) AND product_id = ?`,
-          [...imageIds, id]
-        );
-        // Delete image files
-        for (const image of imagesToDelete) {
-          const imagePath = path.join(__dirname, image.image_url.replace('/uploads/', ''));
-          fs.unlink(imagePath, (err) => {
-            if (err) console.error('Error deleting image file:', err);
-          });
-        }
-      }
-    }
-
-    // Check if there are any images left after deletion
-    let imagesLeft = 0;
-    const [imgCountRows] = await connection.execute(
-      'SELECT COUNT(*) as count FROM product_images WHERE product_id = ?',
-      [id]
-    );
-    if (imgCountRows && imgCountRows[0]) {
-      imagesLeft = imgCountRows[0].count;
-    }
-    // Insert new images
-    if (req.files && req.files.length > 0) {
-      for (const [idx, file] of req.files.entries()) {
-        await connection.execute(
-          `INSERT INTO product_images (product_id, image_url, is_primary, created_at)
-           VALUES (?, ?, ?, NOW())`,
-          [
-            id,
-            `/uploads/${file.filename}`,
-            imagesLeft === 0 && idx === 0 ? 1 : 0 // Set first new image as primary if no images left
-          ]
-        );
-      }
-    }
-
-    // Commit transaction
-    await connection.commit();
-
-    // Fetch updated product (using a LEFT JOIN) so that the response includes an array of images (each with id, imageData (base64 inline), and is_primary) (or an empty array if none).
-    const [updatedProducts] = await connection.execute(`
-      SELECT p.id, p.name, p.description, p.price, p.stock, p.featured, p.is_active, p.created_at, p.updated_at, p.category_id, p.brand_id, c.name AS category, b.name AS brand, pi.id AS image_id, pi.image_url, pi.is_primary
-      FROM products p
-      JOIN categories c ON p.category_id = c.id
-      JOIN brands b ON p.brand_id = b.id
-      LEFT JOIN product_images pi ON p.id = pi.product_id
-      WHERE p.id = ?
-      ORDER BY pi.is_primary DESC, pi.id ASC
-    `, [id]);
-    if (updatedProducts.length === 0) {
-       await connection.end();
-       return res.status(404).json({ error: "Updated product not found." });
-    }
-    const product = { ...updatedProducts[0], images: [] };
-    // Ensure IDs are strings (for consistency)
-    product.category_id = product.category_id?.toString() || '';
-    product.brand_id = product.brand_id?.toString() || '';
-    // Loop over rows (one per image) and build an array of images (each with id, imageData (base64 inline), and is_primary) (or an empty array if none).
-    updatedProducts.forEach((row) => {
-      if (row.image_id) {
-         let imageData = null;
-         if (row.image_url && row.image_url.startsWith('/uploads/')) {
-            const filePath = path.join(uploadsDir, row.image_url.replace(/^\/uploads\//, ''));
-            try {
-               const data = fs.readFileSync(filePath);
-               const ext = path.extname(filePath).toLowerCase();
-               let mime = "image/png";
-               switch (ext) {
-                  case ".png": mime = "image/png"; break;
-                  case ".jpg": case ".jpeg": mime = "image/jpeg"; break;
-                  case ".gif": mime = "image/gif"; break;
-               }
-               imageData = "data:" + mime + ";base64," + data.toString("base64");
-            } catch (err) {
-               console.error("Error reading file (inline) (for image " + row.image_id + "):", err);
-            }
-         } else if (row.image_url) {
-            imageData = req.protocol + '://' + req.get('host') + row.image_url;
-         }
-         product.images.push({ id: row.image_id, imageData, is_primary: row.is_primary === 1 });
-      }
-    });
-    await connection.end();
-    res.json(product);
-  } catch (error) {
-    // Rollback transaction on error
-    await connection.rollback();
+    const { data, error } = await supabase
+      .from('cart')
+      .select('id, quantity, products(id, name, price, stock)')
+      .eq('user_id', req.user.id)
+      .order('id');
+    if (error) throw error;
     
-    // Delete uploaded files if there was an error
-    if (req.files) {
-      req.files.forEach(file => {
-        fs.unlink(file.path, (err) => {
-          if (err) console.error('Error deleting file:', err);
-        });
-      });
-    }
+    const cartWithImages = await Promise.all(data.map(async (item) => {
+      const { data: images } = await supabase
+        .from('product_images')
+        .select('image_url')
+        .eq('product_id', item.products.id)
+        .order('is_primary', { ascending: false })
+        .limit(1);
+      
+      return {
+        id: item.id,
+        product_id: item.products.id,
+        product_name: item.products.name,
+        price: item.products.price,
+        quantity: item.quantity,
+        stock: item.products.stock,
+        image_url: images?.[0]?.image_url || null
+      };
+    }));
     
-    console.error('Error updating product:', error);
-    res.status(500).json({ error: error.message || 'Server error' });
-  } finally {
-    if (connection) {
-      await connection.end();
-    }
-  }
-});
-
-// DELETE /seller/products/:id (protected, seller only)
-app.delete('/api/seller/products/:id', auth, async (req, res) => {
-  // Check if user is a seller
-  if (req.user.role !== 'seller') {
-    return res.status(403).json({ error: 'Only sellers can delete products' });
-  }
-
-  try {
-    const { id } = req.params;
-    const conn = await getConnection();
-
-    // Verify product belongs to seller
-    const [products] = await conn.execute(
-      'SELECT id FROM products WHERE id = ? AND seller_id = ?',
-      [id, req.user.id]
-    );
-
-    if (products.length === 0) {
-      await conn.end();
-      return res.status(404).json({ error: 'Product not found or unauthorized' });
-    }
-
-    // Soft delete product
-    await conn.execute(
-      'UPDATE products SET is_deleted = true, updated_at = NOW() WHERE id = ?',
-      [id]
-    );
-
-    await conn.end();
-    res.json({ message: 'Product deleted successfully' });
+    res.json(cartWithImages);
   } catch (err) {
-    console.error('Error deleting product:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Create product endpoint (protected, seller only)
-app.post('/api/products', auth, upload.array('images', 5), productValidation, async (req, res) => {
-  // Check if user is a seller
-  if (req.user.role !== 'seller') {
-    return res.status(403).json({ error: 'Only sellers can create products' });
-  }
-
-  const connection = await getConnection();
-  await connection.beginTransaction();
-
-  try {
-    const { name, description, price, category_id, brand_id, stock, featured } = req.body;
-
-    // Insert product
-    const [result] = await connection.execute(
-      `INSERT INTO products (
-        name, description, price, category_id, brand_id, 
-        seller_id, stock, featured, is_active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, NOW())`,
-      [
-        name,
-        description,
-        parseFloat(price),
-        parseInt(category_id),
-        parseInt(brand_id),
-        req.user.id,
-        parseInt(stock),
-        featured === '1' ? 1 : 0
-      ]
-    );
-
-    const productId = result.insertId;
-
-    // Handle image uploads
-    if (req.files && req.files.length > 0) {
-      // Insert images one by one to ensure proper error handling
-      for (const file of req.files) {
-        await connection.execute(
-          `INSERT INTO product_images (product_id, image_url, is_primary, created_at)
-           VALUES (?, ?, ?, NOW())`,
-          [productId, `/uploads/${file.filename}`, req.files.indexOf(file) === 0] // First image is primary
-        );
-      }
-    }
-
-    // Commit transaction
-    await connection.commit();
-
-    // Get the created product with images
-    const [products] = await connection.execute(
-      `SELECT p.*, 
-        GROUP_CONCAT(pi.image_url) as images
-       FROM products p
-       LEFT JOIN product_images pi ON p.id = pi.product_id
-       WHERE p.id = ?
-       GROUP BY p.id`,
-      [productId]
-    );
-
-    // Format the response
-    const product = products[0];
-    if (product.images) {
-      product.images = product.images.split(',');
-    } else {
-      product.images = [];
-    }
-
-    res.status(201).json(product);
-  } catch (error) {
-    // Rollback transaction on error
-    await connection.rollback();
-    
-    // Delete uploaded files if there was an error
-    if (req.files) {
-      req.files.forEach(file => {
-        fs.unlink(file.path, (err) => {
-          if (err) console.error('Error deleting file:', err);
-        });
-      });
-    }
-    
-    console.error('Error creating product:', error);
-    res.status(500).json({ error: error.message || 'Server error' });
-  } finally {
-    if (connection) {
-      await connection.end();
-    }
-  }
-});
-
-// POST /cart (protected, customer only)
 app.post('/api/cart', auth, async (req, res) => {
-  // Check if user is a customer
-  if (req.user.role !== 'customer') {
-    return res.status(403).json({ error: 'Only customers can add items to cart' });
-  }
-
+  if (req.user.role !== 'customer') return res.status(403).json({ error: 'Customers only' });
+  const { product_id, quantity } = req.body;
+  
   try {
-    const { product_id, quantity } = req.body;
-    const conn = await getConnection();
-
-    // Check if product exists and is active
-    const [products] = await conn.execute(
-      'SELECT id, stock FROM products WHERE id = ? AND is_active = true AND is_deleted = false',
-      [product_id]
-    );
-
-    if (products.length === 0) {
-      await conn.end();
-      return res.status(404).json({ error: 'Product not found or unavailable' });
-    }
-
-    const product = products[0];
-    if (product.stock < quantity) {
-      await conn.end();
-      return res.status(400).json({ error: 'Not enough stock available' });
-    }
-
-    // Check if item already in cart
-    const [existingItems] = await conn.execute(
-      'SELECT id, quantity FROM cart WHERE user_id = ? AND product_id = ?',
-      [req.user.id, product_id]
-    );
-
-    if (existingItems.length > 0) {
-      // Update quantity
-      const newQuantity = existingItems[0].quantity + quantity;
-      if (product.stock < newQuantity) {
-        await conn.end();
-        return res.status(400).json({ error: 'Not enough stock available' });
-      }
-
-      await conn.execute(
-        'UPDATE cart SET quantity = ? WHERE id = ?',
-        [newQuantity, existingItems[0].id]
-      );
+    const { data: product, error: pError } = await supabase
+      .from('products')
+      .select('id, stock')
+      .eq('id', product_id)
+      .eq('is_active', true)
+      .eq('is_deleted', false)
+      .single();
+    
+    if (pError || !product) return res.status(404).json({ error: 'Product not found' });
+    if (product.stock < quantity) return res.status(400).json({ error: 'Not enough stock' });
+    
+    const { data: existing } = await supabase
+      .from('cart')
+      .select('id, quantity')
+      .eq('user_id', req.user.id)
+      .eq('product_id', product_id)
+      .single();
+    
+    if (existing) {
+      const newQty = existing.quantity + quantity;
+      if (product.stock < newQty) return res.status(400).json({ error: 'Not enough stock' });
+      await supabase.from('cart').update({ quantity: newQty }).eq('id', existing.id);
     } else {
-      // Add new item
-      await conn.execute(
-        'INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)',
-        [req.user.id, product_id, quantity]
-      );
+      await supabase.from('cart').insert([{ user_id: req.user.id, product_id, quantity }]);
     }
-
-    // Get updated cart
-    const [cartItems] = await conn.execute(`
-      SELECT c.id, p.name AS product, c.quantity, p.price
-      FROM cart c
-      JOIN products p ON c.product_id = p.id
-      WHERE c.user_id = ?
-      ORDER BY c.id
-    `, [req.user.id]);
-
-    await conn.end();
-    res.json(cartItems);
+    
+    const { data: cart } = await supabase
+      .from('cart')
+      .select('id, quantity, products(name, price)')
+      .eq('user_id', req.user.id)
+      .order('id');
+    
+    res.json(cart.map(i => ({ id: i.id, product: i.products?.name, quantity: i.quantity, price: i.products?.price })));
   } catch (err) {
-    console.error('Error adding to cart:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// PUT /cart/:id (protected, customer only)
 app.put('/api/cart/:id', auth, async (req, res) => {
   const { quantity } = req.body;
-  if (quantity === undefined || quantity < 1) {
-    return res.status(400).json({ error: 'Invalid quantity' });
-  }
-
+  if (!quantity || quantity < 1) return res.status(400).json({ error: 'Invalid quantity' });
+  
   try {
-    const conn = await getConnection();
-    // First, get the cart item and the product stock
-    const [cartItem] = await conn.execute(
-      `SELECT c.*, p.stock 
-       FROM cart c 
-       JOIN products p ON c.product_id = p.id 
-       WHERE c.id = ? AND c.user_id = ?`,
-      [req.params.id, req.user.id]
-    );
-
-    if (cartItem.length === 0) {
-      await conn.end();
-      return res.status(404).json({ error: 'Cart item not found' });
-    }
-
-    // Check if the requested quantity exceeds available stock
-    if (cartItem[0].stock < quantity) {
-      await conn.end();
-      return res.status(400).json({ 
-        error: `Only ${cartItem[0].stock} items available in stock` 
-      });
-    }
-
-    // Update the cart item
-    await conn.execute(
-      'UPDATE cart SET quantity = ? WHERE id = ?',
-      [quantity, req.params.id]
-    );
-    await conn.end();
-
-    res.json({ message: 'Cart item updated' });
+    const { data: item, error: cError } = await supabase
+      .from('cart')
+      .select('*, products(stock)')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+    
+    if (cError || !item) return res.status(404).json({ error: 'Cart item not found' });
+    if (item.products.stock < quantity) return res.status(400).json({ error: `Only ${item.products.stock} available` });
+    
+    const { error } = await supabase.from('cart').update({ quantity }).eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ message: 'Updated' });
   } catch (err) {
-    console.error('Error updating cart:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// DELETE /cart/:id (protected, customer only)
 app.delete('/api/cart/:id', auth, async (req, res) => {
-  // Check if user is a customer
-  if (req.user.role !== 'customer') {
-    return res.status(403).json({ error: 'Only customers can remove items from cart' });
-  }
-
+  if (req.user.role !== 'customer') return res.status(403).json({ error: 'Customers only' });
+  
   try {
-    const { id } = req.params;
-    const conn = await getConnection();
-
-    // Verify cart item belongs to user
-    const [cartItems] = await conn.execute(
-      'SELECT id FROM cart WHERE id = ? AND user_id = ?',
-      [id, req.user.id]
-    );
-
-    if (cartItems.length === 0) {
-      await conn.end();
-      return res.status(404).json({ error: 'Cart item not found or unauthorized' });
-    }
-
-    // Remove item
-    await conn.execute(
-      'DELETE FROM cart WHERE id = ?',
-      [id]
-    );
-
-    await conn.end();
-    res.json({ message: 'Item removed from cart' });
+    const { error } = await supabase
+      .from('cart')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id);
+    if (error) throw error;
+    res.json({ message: 'Removed' });
   } catch (err) {
-    console.error('Error removing from cart:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Get cart count
 app.get('/api/cart/count', auth, async (req, res) => {
-  if (req.user.role !== 'customer') {
-    return res.status(403).json({ error: 'Only customers can access cart' });
-  }
-
+  if (req.user.role !== 'customer') return res.status(403).json({ error: 'Customers only' });
+  
   try {
-    const conn = await getConnection();
-    const [rows] = await conn.execute(
-      'SELECT COUNT(*) as count FROM cart WHERE user_id = ?',
-      [req.user.id]
-    );
-    await conn.end();
-    res.json({ count: parseInt(rows[0].count) });
-  } catch (error) {
-    console.error('Error getting cart count:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// POST /categories (protected, seller only)
-app.post('/api/categories', auth, async (req, res) => {
-  if (req.user.role !== 'seller') {
-    return res.status(403).json({ error: 'Only sellers can manage categories' });
-  }
-
-  const { name, description, is_featured } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: 'Category name is required' });
-  }
-
-  try {
-    const conn = await getConnection();
-    const [result] = await conn.execute(
-      'INSERT INTO categories (name, description, is_featured) VALUES (?, ?, ?)',
-      [name, description, is_featured || false]
-    );
-    await conn.end();
-
-    res.status(201).json({
-      id: result.insertId,
-      name,
-      description,
-      is_featured: is_featured || false,
-      is_active: true
-    });
+    const { count, error } = await supabase
+      .from('cart')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', req.user.id);
+    if (error) throw error;
+    res.json({ count: count || 0 });
   } catch (err) {
-    console.error('Error creating category:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// PUT /categories/:id (protected, seller only)
-app.put('/api/categories/:id', auth, async (req, res) => {
-  if (req.user.role !== 'seller') {
-    return res.status(403).json({ error: 'Only sellers can manage categories' });
-  }
-
-  const { id } = req.params;
-  const { name, description, is_featured, is_active } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: 'Category name is required' });
-  }
-
+// Wishlist
+app.get('/api/wishlist', auth, async (req, res) => {
   try {
-    const conn = await getConnection();
-    const [result] = await conn.execute(
-      'UPDATE categories SET name = ?, description = ?, is_featured = ?, is_active = ? WHERE id = ? AND is_deleted = false',
-      [name, description, is_featured, is_active, id]
-    );
-    await conn.end();
+    const { data, error } = await supabase
+      .from('wishlist')
+      .select('id, products(name, price)')
+      .eq('user_id', req.user.id)
+      .order('id');
+    if (error) throw error;
+    res.json(data.map(w => ({ id: w.id, product: w.products?.name, price: w.products?.price })));
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
+// Notifications
+app.get('/api/notifications', auth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id, title, message, type, is_read, created_at')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
+// Seller Products
+app.get('/api/seller/products', auth, async (req, res) => {
+  if (req.user.role !== 'seller') return res.status(403).json({ error: 'Sellers only' });
+  
+  try {
+    const { data: products, error } = await supabase
+      .from('products')
+      .select('*, categories(name), brands(name)')
+      .eq('seller_id', req.user.id)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    const productsWithDetails = await Promise.all(products.map(async (p) => {
+      const { data: images } = await supabase
+        .from('product_images')
+        .select('image_url')
+        .eq('product_id', p.id)
+        .order('is_primary', { ascending: false })
+        .limit(1);
+      
+      const { count: totalOrders } = await supabase
+        .from('order_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('product_id', p.id);
+      
+      const { data: soldData } = await supabase
+        .from('order_items')
+        .select('quantity')
+        .eq('product_id', p.id);
+      
+      const totalSold = soldData?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+      
+      return {
+        ...p,
+        category_id: p.category_id?.toString() || '',
+        brand_id: p.brand_id?.toString() || '',
+        category: p.categories?.name || '',
+        brand: p.brands?.name || '',
+        total_orders: totalOrders || 0,
+        total_sold: totalSold,
+        imageData: getImageData(images?.[0]?.image_url)
+      };
+    }));
+    
+    res.json(productsWithDetails);
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/seller/products/:id', auth, async (req, res) => {
+  if (req.user.role !== 'seller') return res.status(403).json({ error: 'Sellers only' });
+  
+  try {
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('*, categories(name), brands(name)')
+      .eq('id', req.params.id)
+      .eq('seller_id', req.user.id)
+      .eq('is_deleted', false)
+      .single();
+    
+    if (error || !product) return res.status(404).json({ error: 'Not found' });
+    
+    const { data: images } = await supabase
+      .from('product_images')
+      .select('id, image_url, is_primary')
+      .eq('product_id', req.params.id);
+    
     res.json({
-      id,
-      name,
-      description,
-      is_featured,
-      is_active
+      ...product,
+      category_id: product.category_id?.toString() || '',
+      brand_id: product.brand_id?.toString() || '',
+      category_name: product.categories?.name || '',
+      brand_name: product.brands?.name || '',
+      images: images?.map(img => ({ id: img.id, imageData: getImageData(img.image_url), is_primary: img.is_primary })) || []
     });
   } catch (err) {
-    console.error('Error updating category:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// DELETE /categories/:id (protected, seller only)
-app.delete('/api/categories/:id', auth, async (req, res) => {
-  if (req.user.role !== 'seller') {
-    return res.status(403).json({ error: 'Only sellers can manage categories' });
-  }
-
-  const { id } = req.params;
+app.post('/api/products', auth, upload.array('images', 5), productValidation, async (req, res) => {
+  if (req.user.role !== 'seller') return res.status(403).json({ error: 'Sellers only' });
+  const { name, description, price, category_id, brand_id, stock, featured } = req.body;
+  
   try {
-    const conn = await getConnection();
+    const { data: product, error } = await supabase
+      .from('products')
+      .insert([{
+        name, description,
+        price: parseFloat(price),
+        category_id: parseInt(category_id),
+        brand_id: parseInt(brand_id),
+        seller_id: req.user.id,
+        stock: parseInt(stock),
+        featured: featured === '1',
+        is_active: true
+      }])
+      .select()
+      .single();
     
-    // Check if category is in use
-    const [products] = await conn.execute(
-      'SELECT COUNT(*) as count FROM products WHERE category_id = ? AND is_deleted = false',
-      [id]
-    );
+    if (error) throw error;
     
-    if (products[0].count > 0) {
-      await conn.end();
-      return res.status(400).json({ error: 'Cannot delete category that has products' });
+    if (req.files?.length) {
+      const images = req.files.map((f, i) => ({
+        product_id: product.id,
+        image_url: `/uploads/${f.filename}`,
+        is_primary: i === 0
+      }));
+      await supabase.from('product_images').insert(images);
     }
-
-    // Soft delete the category
-    const [result] = await conn.execute(
-      'UPDATE categories SET is_deleted = true, deleted_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [id]
-    );
-    await conn.end();
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
-
-    res.json({ message: 'Category deleted successfully' });
+    
+    const { data: imgs } = await supabase
+      .from('product_images')
+      .select('image_url')
+      .eq('product_id', product.id);
+    
+    res.status(201).json({ ...product, images: imgs?.map(i => i.image_url) || [] });
   } catch (err) {
-    console.error('Error deleting category:', err);
+    req.files?.forEach(f => fs.unlink(f.path, () => {}));
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Error handling middleware
+app.put('/api/seller/products/:id', auth, upload.array('images', 5), productValidation, async (req, res) => {
+  if (req.user.role !== 'seller') return res.status(403).json({ error: 'Sellers only' });
+  const { name, description, price, category_id, brand_id, stock, featured, is_active, delete_images } = req.body;
+  
+  try {
+    const { data: product, error: checkErr } = await supabase
+      .from('products')
+      .select('id')
+      .eq('id', req.params.id)
+      .eq('seller_id', req.user.id)
+      .eq('is_deleted', false)
+      .single();
+    
+    if (checkErr || !product) return res.status(404).json({ error: 'Not found' });
+    
+    const { error: updateErr } = await supabase
+      .from('products')
+      .update({
+        name, description,
+        price: parseFloat(price),
+        category_id: parseInt(category_id),
+        brand_id: parseInt(brand_id),
+        stock: parseInt(stock),
+        featured: featured === '1',
+        is_active: is_active === '1'
+      })
+      .eq('id', req.params.id);
+    
+    if (updateErr) throw updateErr;
+    
+    if (delete_images) {
+      const imageIds = JSON.parse(delete_images);
+      if (imageIds.length) {
+        const { data: toDelete } = await supabase
+          .from('product_images')
+          .select('image_url')
+          .in('id', imageIds)
+          .eq('product_id', req.params.id);
+        
+        await supabase.from('product_images').delete().in('id', imageIds).eq('product_id', req.params.id);
+        toDelete?.forEach(img => {
+          const p = path.join(uploadsDir, img.image_url.replace('/uploads/', ''));
+          fs.unlink(p, () => {});
+        });
+      }
+    }
+    
+    const { count: imagesLeft } = await supabase
+      .from('product_images')
+      .select('*', { count: 'exact', head: true })
+      .eq('product_id', req.params.id);
+    
+    if (req.files?.length) {
+      const newImages = req.files.map((f, i) => ({
+        product_id: parseInt(req.params.id),
+        image_url: `/uploads/${f.filename}`,
+        is_primary: imagesLeft === 0 && i === 0
+      }));
+      await supabase.from('product_images').insert(newImages);
+    }
+    
+    const { data: updated } = await supabase
+      .from('products')
+      .select('*, categories(name), brands(name)')
+      .eq('id', req.params.id)
+      .single();
+    
+    const { data: images } = await supabase
+      .from('product_images')
+      .select('id, image_url, is_primary')
+      .eq('product_id', req.params.id)
+      .order('is_primary', { ascending: false });
+    
+    res.json({
+      ...updated,
+      category_id: updated.category_id?.toString() || '',
+      brand_id: updated.brand_id?.toString() || '',
+      category: updated.categories?.name || '',
+      brand: updated.brands?.name || '',
+      images: images?.map(img => ({ id: img.id, imageData: getImageData(img.image_url), is_primary: img.is_primary })) || []
+    });
+  } catch (err) {
+    req.files?.forEach(f => fs.unlink(f.path, () => {}));
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/seller/products/:id', auth, async (req, res) => {
+  if (req.user.role !== 'seller') return res.status(403).json({ error: 'Sellers only' });
+  
+  try {
+    const { data: product, error: checkErr } = await supabase
+      .from('products')
+      .select('id')
+      .eq('id', req.params.id)
+      .eq('seller_id', req.user.id)
+      .single();
+    
+    if (checkErr || !product) return res.status(404).json({ error: 'Not found' });
+    
+    const { error } = await supabase
+      .from('products')
+      .update({ is_deleted: true, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id);
+    
+    if (error) throw error;
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something broke!' });
 });
 
 app.listen(PORT, () => {
-  console.log(`API server running on http://localhost:${PORT}`);
-}); 
+  console.log(`✅ CarFix API running on http://localhost:${PORT}`);
+  console.log(`📊 Using Supabase PostgreSQL`);
+});

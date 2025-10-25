@@ -4,12 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test-db": "node scripts/test-supabase.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "aos": "^2.3.4",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
