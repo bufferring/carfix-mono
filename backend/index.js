@@ -4,7 +4,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { auth, generateToken } = require('./middleware/auth');
 const authRoutes = require('./routes/auth-supabase');
 const { productValidation } = require('./middleware/validators');
@@ -18,47 +17,59 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Create uploads directory
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// Configure multer for memory storage (upload to Supabase)
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     cb(null, allowedTypes.includes(file.mimetype));
   },
   limits: { fileSize: 5 * 1024 * 1024 }
 });
 
-// Serve uploads
-app.use('/uploads', express.static(uploadsDir));
+// Helper to upload image to Supabase Storage
+const uploadToSupabase = async (file) => {
+  const fileExt = path.extname(file.originalname);
+  const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${fileExt}`;
+  const filePath = `products/${fileName}`;
+  
+  const { data, error } = await supabase.storage
+    .from('product-images')
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype,
+      cacheControl: '3600',
+      upsert: false
+    });
+  
+  if (error) throw error;
+  
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('product-images')
+    .getPublicUrl(filePath);
+  
+  return publicUrl;
+};
 
-// Helper to read image as base64
-const getImageData = (imageUrl) => {
-  if (!imageUrl || !imageUrl.startsWith('/uploads/')) return null;
+// Helper to delete image from Supabase Storage
+const deleteFromSupabase = async (imageUrl) => {
   try {
-    const filePath = path.join(uploadsDir, imageUrl.replace('/uploads/', ''));
-    const data = fs.readFileSync(filePath);
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif' };
-    const mime = mimeTypes[ext] || 'image/png';
-    return `data:${mime};base64,${data.toString('base64')}`;
-  } catch (err) {
-    console.error('Error reading image:', err);
-    return null;
+    // Extract file path from URL
+    const urlParts = imageUrl.split('/product-images/');
+    if (urlParts.length < 2) return;
+    const filePath = urlParts[1];
+    
+    await supabase.storage
+      .from('product-images')
+      .remove([filePath]);
+  } catch (error) {
+    console.error('Error deleting from Supabase:', error);
   }
+};
+
+// Helper to get image URL (Supabase returns public URLs directly)
+const getImageData = (imageUrl) => {
+  return imageUrl || null;
 };
 
 // Routes
@@ -533,9 +544,12 @@ app.post('/api/products', auth, upload.array('images', 5), productValidation, as
     if (error) throw error;
     
     if (req.files?.length) {
-      const images = req.files.map((f, i) => ({
+      const uploadPromises = req.files.map(file => uploadToSupabase(file));
+      const imageUrls = await Promise.all(uploadPromises);
+      
+      const images = imageUrls.map((url, i) => ({
         product_id: product.id,
-        image_url: `/uploads/${f.filename}`,
+        image_url: url,
         is_primary: i === 0
       }));
       await supabase.from('product_images').insert(images);
@@ -548,7 +562,6 @@ app.post('/api/products', auth, upload.array('images', 5), productValidation, as
     
     res.status(201).json({ ...product, images: imgs?.map(i => i.image_url) || [] });
   } catch (err) {
-    req.files?.forEach(f => fs.unlink(f.path, () => {}));
     console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
@@ -594,10 +607,9 @@ app.put('/api/seller/products/:id', auth, upload.array('images', 5), productVali
           .eq('product_id', req.params.id);
         
         await supabase.from('product_images').delete().in('id', imageIds).eq('product_id', req.params.id);
-        toDelete?.forEach(img => {
-          const p = path.join(uploadsDir, img.image_url.replace('/uploads/', ''));
-          fs.unlink(p, () => {});
-        });
+        
+        // Delete from Supabase Storage
+        toDelete?.forEach(img => deleteFromSupabase(img.image_url));
       }
     }
     
@@ -607,9 +619,12 @@ app.put('/api/seller/products/:id', auth, upload.array('images', 5), productVali
       .eq('product_id', req.params.id);
     
     if (req.files?.length) {
-      const newImages = req.files.map((f, i) => ({
+      const uploadPromises = req.files.map(file => uploadToSupabase(file));
+      const imageUrls = await Promise.all(uploadPromises);
+      
+      const newImages = imageUrls.map((url, i) => ({
         product_id: parseInt(req.params.id),
-        image_url: `/uploads/${f.filename}`,
+        image_url: url,
         is_primary: imagesLeft === 0 && i === 0
       }));
       await supabase.from('product_images').insert(newImages);
@@ -636,7 +651,6 @@ app.put('/api/seller/products/:id', auth, upload.array('images', 5), productVali
       images: images?.map(img => ({ id: img.id, imageData: getImageData(img.image_url), is_primary: img.is_primary })) || []
     });
   } catch (err) {
-    req.files?.forEach(f => fs.unlink(f.path, () => {}));
     console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
