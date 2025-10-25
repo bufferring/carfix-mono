@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 const { createClient } = require('@supabase/supabase-js');
 
-const SUPABASE_URL = 'https://loviagjwpzcquxhsexzo.supabase.co';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvdmlhZ2p3cHpjcXV4aHNleHpvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDE3MDQ1NiwiZXhwIjoyMDc1NzQ2NDU2fQ.x93yc1GNwNofFLoOwl_wos0BPzVv5DSGgIjZUoMM5fY';
+const SUPABASE_URL = 'https://hfnsgdeitwuhovcupqdn.supabase.co';
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmbnNnZGVpdHd1aG92Y3VwcWRuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTQzMDM3MiwiZXhwIjoyMDc3MDA2MzcyfQ.znhWCKc7cTjWd8NGr-ukzO3TDpiLYxLMNzizPCjZaFs';
 
 async function test() {
   console.log('🧪 Testing Supabase...\n');
