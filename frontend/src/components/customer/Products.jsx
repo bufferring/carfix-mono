@@ -220,7 +220,9 @@ function Products() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Search bar */}
         <div className="flex flex-col w-full items-center mb-10">
-          <h1 className="text-4xl text-gray-900 text-center font-medium mb-4">Encuentra el repuesto que buscas</h1>
+          <h1 className="text-4xl text-center font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-gray-800 text-transparent bg-clip-text mb-4">
+            Encuentra el repuesto que buscas
+          </h1>
           <div className="flex gap-2 w-[80%] bg-white rounded-full overflow-hidden shadow-sm border-[2.5px] transition duration-5000 ease-in-out border-gray-300 hover:border-red-400 hover:shadow-red-400">
             <input placeholder="Buscar productos..." ref={searchInputRef} onChange={handleSearchChange} type="text" className="w-full border-transparent focus:border-transparent focus:outline-none focus:ring-transparent" />
           </div>
