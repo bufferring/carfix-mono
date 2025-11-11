@@ -278,15 +278,13 @@ function Products() {
                 )}
               </div>
               <div className="p-4 flex flex-col h-full">
-                <div className="flex-grow">
                   <h3 className="text-lg font-medium text-gray-900">{safeField(product.name)}</h3>
                   <p className="mt-1 text-sm text-gray-500">{safeField(product.category)}</p>
                   <div className="mt-2 flex items-center justify-between">
-                    <p className="text-lg font-medium text-gray-900">{safeField(product.price) !== '' ? `$${product.price}` : ''}</p>
-                    {safeField(product.brand) ? <p className="text-sm text-gray-500">{product.brand}</p> : null}
-                  </div>
+                  <p className="text-lg font-medium text-gray-900">{safeField(product.price) !== '' ? `$${product.price}` : ''}</p>
+                  {safeField(product.brand) ? <p className="text-sm text-gray-500">{product.brand}</p> : null}
                 </div>
-                <div className="mt-auto pt-4">
+                <div className="mt-4">
                   {product.stock > 0 ? (
                     <button
                       className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition"
