@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../../api'; 
 
 function Products() {
@@ -29,6 +29,7 @@ function Products() {
   const { user } = useAuth();
   const { addToCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -288,10 +289,21 @@ function Products() {
                     <button
                       className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition"
                       onClick={() => {
+                        if (!user) {
+                          navigate('/login', { state: { from: location } });
+                          return;
+                        }
+
                         setAddingToCart(product.id);
                         addToCart(product.id, 1)
-                          .then(() => showToast('success', 'Item added to cart'))
-                          .catch(err => showToast('error', err.message || 'Failed to add to cart'))
+                          .then((success) => {
+                            if (success) {
+                              showToast('success', 'Producto agregado al carrito');
+                            } else {
+                              showToast('error', 'No se pudo agregar el producto');
+                            }
+                          })
+                          .catch(err => showToast('error', err.message || 'Error al agregar al carrito'))
                           .finally(() => setAddingToCart(null));
                       }}
                       disabled={addingToCart === product.id}
