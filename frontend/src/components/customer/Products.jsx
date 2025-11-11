@@ -232,7 +232,7 @@ function Products() {
               key={product.id}
               data-aos="fade-up"
               data-aos-delay={idx * 50}
-              className={`bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105${product.featured ? ' ring-2 ring-blue-500' : ''}`}
+              className={`flex flex-col bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105${product.featured ? ' ring-2 ring-blue-500' : ''}`}
             >
               <div className="relative">
                 {product.images && product.images.length > 1 ? (
@@ -277,14 +277,16 @@ function Products() {
                   </div>
                 )}
               </div>
-              <div className="p-4 flex flex-col h-full">
+              <div className="flex flex-col flex-grow p-4">
+                <div>
                   <h3 className="text-lg font-medium text-gray-900">{safeField(product.name)}</h3>
                   <p className="mt-1 text-sm text-gray-500">{safeField(product.category)}</p>
                   <div className="mt-2 flex items-center justify-between">
                   <p className="text-lg font-medium text-gray-900">{safeField(product.price) !== '' ? `$${product.price}` : ''}</p>
                   {safeField(product.brand) ? <p className="text-sm text-gray-500">{product.brand}</p> : null}
                 </div>
-                <div className="mt-4">
+                </div>
+                <div className="mt-auto pt-4">
                   {product.stock > 0 ? (
                     <button
                       className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition"
