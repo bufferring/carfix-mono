@@ -76,8 +76,9 @@ export default function Home() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="flex justify-center items-center h-64" role="status" aria-label="Cargando productos">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" aria-hidden="true"></div>
+            <span className="sr-only">Cargando productos destacados...</span>
           </div>
         ) : error ? (
           <div className="text-center text-red-600 mt-4">
