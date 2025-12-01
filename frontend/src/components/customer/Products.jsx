@@ -121,17 +121,18 @@ function Products() {
   const safeField = (val) => (val === null || val === undefined || val === '' || val === 0 ? '' : val);
 
   if (loading) return (
-    <div className="flex justify-center items-center min-h-[50vh]">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+    <div className="flex justify-center items-center min-h-[50vh]" role="status" aria-label="Cargando productos">
+      <div className="w-12 h-12 rounded-full border-b-2 border-blue-500 animate-spin" aria-hidden="true"></div>
+      <span className="sr-only">Cargando productos...</span>
     </div>
   );
 
   if (error) return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="bg-red-50 border border-red-200 rounded-md p-4">
+    <div className="px-4 py-8 mx-auto max-w-7xl sm:px-6 lg:px-8">
+      <div className="p-4 bg-red-50 rounded-md border border-red-200">
         <div className="flex">
           <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="w-5 h-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
           </div>
@@ -145,17 +146,17 @@ function Products() {
   );
 
   return (
-    <div className="flex flex-wrap flex-col items-center sm:items-start sm:ml-4 sm:flex-nowrap sm:flex-row">
+    <div className="flex flex-col flex-wrap items-center sm:items-start sm:ml-4 sm:flex-nowrap sm:flex-row">
       {/* Toast Notification */}
       {toast.visible && (
-        <div className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg z-50 ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
+        <div role="alert" aria-live="polite" className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg z-50 ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
           <div className="flex items-center">
             {toast.type === 'success' ? (
-              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             ) : (
-              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             )}
@@ -168,7 +169,7 @@ function Products() {
       <div className="flex flex-col mb-4 w-[90%] sm:w-[300px]">
         <p className="text-lg font-medium">Filtrar por</p>
         {/* Featured */}
-        <div className="flex items-center pl-2 pr-4 my-2">
+        <div className="flex items-center pr-4 pl-2 my-2">
           <input
             type="checkbox"
             name="featured"
@@ -177,22 +178,22 @@ function Products() {
               else setFeatured(true);
               handleCheckbox(e);
             }}
-            className="appearance-none focus:outline-none accent-red-500 hover:checked:bg-red-500 focus:checked:bg-red-500 focus:ring-transparent rounded-sm form-checkbox mr-2 size-4 checked:bg-red-500"
+            className="mr-2 rounded-sm appearance-none focus:outline-none accent-red-500 hover:checked:bg-red-500 focus:checked:bg-red-500 focus:ring-transparent form-checkbox size-4 checked:bg-red-500"
           />
           <label htmlFor="featured" className="text-sm">Solo Destacados</label>
         </div>
 
         {/* Categories */}
         <div className="flex flex-col mt-2 space-between mb-4 bg-white rounded-md overflow-hidden border-[2.5px] border-[#ea8080] shadow-md">
-          <p className="text-md font-medium p-2 w-full text-center text-white bg-red-500">Categoría</p>
+          <p className="p-2 w-full font-medium text-center text-white bg-red-500 text-md">Categoría</p>
           {categories.map((category, index) => (
-            <div key={index} className="flex items-center pl-2 pr-4 mt-2 mb-2">
+            <div key={index} className="flex items-center pr-4 pl-2 mt-2 mb-2">
               <input
                 id={categories[index].name}
                 type="checkbox"
                 name={'categories'}
                 onChange={handleCheckbox}
-                className="appearance-none focus:outline-none accent-red-500 hover:checked:bg-red-500 focus:checked:bg-red-500 focus:ring-transparent rounded-sm form-checkbox mr-2 size-4 checked:bg-red-500"
+                className="mr-2 rounded-sm appearance-none focus:outline-none accent-red-500 hover:checked:bg-red-500 focus:checked:bg-red-500 focus:ring-transparent form-checkbox size-4 checked:bg-red-500"
               />
               <label htmlFor={categories[index].name} className="text-sm">{categories[index].name}</label>
             </div>
@@ -201,15 +202,15 @@ function Products() {
 
         {/* Brand */}
         <div className="flex flex-col mt-2 flex space-between bg-white rounded-md overflow-hidden border-[2.5px] border-[#ea8080] shadow-md w-full">
-          <p className="text-md font-medium p-2 w-full text-center text-white bg-red-500">Marca</p>
+          <p className="p-2 w-full font-medium text-center text-white bg-red-500 text-md">Marca</p>
           {brands.map((category, index) => (
-            <div key={index} className="flex items-center pl-2 pr-4 mt-2 mb-2">
+            <div key={index} className="flex items-center pr-4 pl-2 mt-2 mb-2">
               <input
                 id={brands[index].name}
                 type="checkbox"
                 name={'brands'}
                 onChange={handleCheckbox}
-                className="appearance-none focus:outline-none accent-red-500 hover:checked:bg-red-500 focus:checked:bg-red-500 focus:ring-transparent rounded-sm form-checkbox mr-2 size-4 checked:bg-red-500"
+                className="mr-2 rounded-sm appearance-none focus:outline-none accent-red-500 hover:checked:bg-red-500 focus:checked:bg-red-500 focus:ring-transparent form-checkbox size-4 checked:bg-red-500"
               />
               <label htmlFor={brands[index].name} className="text-sm">{brands[index].name}</label>
             </div>
@@ -217,18 +218,19 @@ function Products() {
         </div>
       </div>
     
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <div className="px-4 py-8 mx-auto w-full max-w-7xl sm:px-6 lg:px-8">
         {/* Search bar */}
-        <div className="flex flex-col w-full items-center mb-10">
-          <h1 className="text-4xl text-center font-extrabold tracking-tight bg-gradient-to-r from-red-600 to-gray-800 text-transparent bg-clip-text mb-4">
+        <div className="flex flex-col items-center mb-10 w-full">
+          <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-center text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-gray-800">
             Encuentra el repuesto que buscas
           </h1>
           <div className="flex gap-2 w-[80%] bg-white rounded-full overflow-hidden shadow-sm border-[2.5px] transition duration-5000 ease-in-out border-gray-300 hover:border-red-400 hover:shadow-red-400">
-            <input placeholder="Buscar productos..." ref={searchInputRef} onChange={handleSearchChange} type="text" className="w-full border-transparent focus:border-transparent focus:outline-none focus:ring-transparent" />
+            <label htmlFor="product-search" className="sr-only">Buscar productos</label>
+            <input id="product-search" placeholder="Buscar productos..." ref={searchInputRef} onChange={handleSearchChange} type="search" aria-label="Buscar productos" className="w-full border-transparent focus:border-transparent focus:outline-none focus:ring-transparent" />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" role="list" aria-label="Lista de productos">
           {filteredProducts.map((product, idx) => (
             <div
               key={product.id}
@@ -245,11 +247,11 @@ function Products() {
                           key={idx}
                           src={img.imageData}
                           alt={`${product.name} (${idx + 1})`}
-                          className="w-full h-full object-cover"
+                          className="object-cover w-full h-full"
                         />
                       ) : (idx === 0) ? (
-                        <div key={idx} className="w-full h-full flex items-center justify-center bg-gray-200">
-                          <svg className="h-12 w-12 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                        <div key={idx} className="flex justify-center items-center w-full h-full bg-gray-200">
+                          <svg className="w-12 h-12 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </div>
@@ -261,12 +263,12 @@ function Products() {
                     <img
                       src={product.images[0].imageData}
                       alt={product.name}
-                      className="w-full h-full object-cover"
+                      className="object-cover w-full h-full"
                     />
                   </div>
                 ) : (
-                  <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                    <svg className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="flex justify-center items-center w-full h-48 bg-gray-200">
+                    <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
@@ -283,15 +285,15 @@ function Products() {
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">{safeField(product.name)}</h3>
                   <p className="mt-1 text-sm text-gray-500">{safeField(product.category)}</p>
-                  <div className="mt-2 flex items-center justify-between">
+                  <div className="flex justify-between items-center mt-2">
                   <p className="text-lg font-medium text-gray-900">{safeField(product.price) !== '' ? `$${product.price}` : ''}</p>
                   {safeField(product.brand) ? <p className="text-sm text-gray-500">{product.brand}</p> : null}
                 </div>
                 </div>
-                <div className="mt-auto pt-4">
+                <div className="pt-4 mt-auto">
                   {product.stock > 0 ? (
                     <button
-                      className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 transition"
+                      className="px-3 py-2 w-full text-sm font-medium text-white bg-red-600 rounded-md transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                       onClick={() => {
                         if (!user) {
                           navigate('/login', { state: { from: location } });
@@ -314,7 +316,7 @@ function Products() {
                     >
                       {addingToCart === product.id ? (
                         <span className="flex justify-center">
-                          <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                          <svg className="mr-2 w-5 h-5 animate-spin" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
@@ -324,7 +326,7 @@ function Products() {
                     </button>
                   ) : (
                     <button
-                      className="w-full rounded-md bg-gray-200 text-gray-600 px-3 py-2 text-sm font-medium cursor-not-allowed opacity-50"
+                      className="px-3 py-2 w-full text-sm font-medium text-gray-600 bg-gray-200 rounded-md opacity-50 cursor-not-allowed"
                       disabled
                     >
                       Sin Stock

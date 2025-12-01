@@ -1,0 +1,10 @@
+# CarFix Robots.txt
+User-agent: *
+Allow: /
+Disallow: /seller/
+Disallow: /cart
+Disallow: /login
+Disallow: /register
+
+# Sitemap
+Sitemap: https://carfix.vercel.app/sitemap.xml
